@@ -8,3 +8,5 @@ dist/
 build/
 .streamlit/secrets.toml
 uploaded_pdfs/
+data/
+

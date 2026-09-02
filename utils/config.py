@@ -9,7 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google import genai
 
-# ── Load Environment ──────────────────────────────────────────────
+#  Load Environment 
 load_dotenv()
 
 def get_secret(key: str, default: str = "") -> str:
@@ -35,12 +35,24 @@ TAVILY_API_KEY = get_secret("TAVILY_API_KEY")
 # Configure Gemini client globally
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-# ── Model Tier Strategy ───────────────────────────────────────────
+#  Model Tier Strategy 
 MODEL_ROUTER = "gemini-2.5-flash"            # Intent classification (fastest)
 MODEL_SCHOLAR = "gemini-2.5-flash"           # Scholarly chat & RAG answers (generous free tier)
-MODEL_EMBEDDING = "gemini-embedding-001"     # Vector embeddings for FAISS RAG
+MODEL_EMBEDDING = "gemini-embedding-001"     # Vector embeddings for RAG
 
-# ── Design Tokens (from design.instructions.md) ──────────────────
+#  LanceDB & Reranking Strategy 
+_APP_DIR = Path(__file__).resolve().parent.parent
+LANCEDB_DIR = _APP_DIR / "data" / "lancedb"
+LANCEDB_DIR.mkdir(parents=True, exist_ok=True)
+RERANKER_MODEL = "ms-marco-MiniLM-L-12-v2"    # Ultra-fast CPU cross-encoder reranker
+USE_HYBRID_SEARCH = True                     # Combine Tantivy BM25 FTS + Vector embeddings
+
+#  Optional Local / Open-Source LLM (Ollama / vLLM fallback)
+USE_LOCAL_LLM = get_secret("USE_LOCAL_LLM", "false").lower() in {"true", "1", "yes"}
+LOCAL_LLM_URL = get_secret("LOCAL_LLM_URL", "http://localhost:11434/v1")
+LOCAL_LLM_MODEL = get_secret("LOCAL_LLM_MODEL", "qwen2.5:7b")
+
+#  Design Tokens (from design.instructions.md) 
 MIDNIGHT_BLUE = "#1a2a40"
 BG_DARK = "#0F172A"
 GOLD = "#D4AF37"
@@ -48,7 +60,7 @@ EMERALD_DEEP = "#064E3B"
 EMERALD_LIGHT = "#10B981"
 BG_LIGHT = "#F8FAFC"
 
-# ── Logo ──────────────────────────────────────────────────────────
+#  Logo 
 _APP_DIR = Path(__file__).resolve().parent.parent
 LOGO_PATH = _APP_DIR / "Hadayah AI.png"
 
@@ -62,7 +74,7 @@ def get_logo_base64() -> str:
     except FileNotFoundError:
         return ""
 
-# ── AlQuran.cloud API ─────────────────────────────────────────────
+#  AlQuran.cloud API 
 QURAN_API_BASE = "https://api.alquran.cloud/v1"
 ARABIC_EDITION = "ar.alafasy"       # Mishary Rashid Alafasy (with audio)
 ENGLISH_EDITION = "en.asad"         # Muhammad Asad English translation
@@ -70,7 +82,7 @@ URDU_EDITION = "ur.jalandhry"       # Maulana Fateh Muhammad Jalandhry
 ENGLISH_AUDIO_EDITION = "en.walk"   # Ibrahim Walk
 URDU_AUDIO_EDITION = "ur.khan"      # Shamshad Ali Khan
 
-# ── Tafseer & Hadith Sources ───────────────────────────────────
+#  Tafseer & Hadith Sources 
 TAFSEER_EDITIONS = {
     "ar.muyassar": "Tafsir Al-Muyassar",
     "ar.jalalayn": "Tafsir Al-Jalalayn",
@@ -112,7 +124,7 @@ TAFSEER_PREFERRED_BY_LANGUAGE = {
     ],
 }
 
-# ── Hadith Source Strategy ─────────────────────────────────────
+#  Hadith Source Strategy 
 # Primary: sunnah.com API (verified hadith with grades).
 # Fallback: Tavily web search filtered to trusted domains (commentary only).
 SUNNAH_API_KEY = get_secret("SUNNAH_API_KEY")
@@ -138,7 +150,7 @@ HADITH_COLLECTIONS = {
     "riyadussalihin": "Riyad as-Salihin",
 }
 
-# ── Quran.com v4 API ──────────────────────────────────────────
+#  Quran.com v4 API ─
 QURANCOM_API_BASE = "https://api.quran.com/api/v4"
 # Quran.com tafsir resource IDs — real English/Urdu tafseer (not just translations)
 QURANCOM_TAFSIRS = {
@@ -161,7 +173,7 @@ QURANCOM_TAFSIRS = {
 # Keep False for production-facing UX; enable for internal QA/debugging.
 SHOW_TECHNICAL_SOURCE_DETAILS = False
 
-# ── Audio Modes ───────────────────────────────────────────────────
+#  Audio Modes ─
 AUDIO_MODES = [
     "Arabic (Mishary Rashid)",
     "Arabic + Urdu Translation",
@@ -170,7 +182,7 @@ AUDIO_MODES = [
     "English Translation Only",
 ]
 
-# ── 30 Juz Metadata ──────────────────────────────────────────────
+#  30 Juz Metadata 
 JUZ_DATA = {
     1:  {"name": "Alif Lam Mim", "arabic": "الم", "english": "Alif Lam Mim", "surahs": "Al-Fatiha 1 – Al-Baqarah 141"},
     2:  {"name": "Sayaqulu", "arabic": "سيقول", "english": "They will say", "surahs": "Al-Baqarah 142 – Al-Baqarah 252"},

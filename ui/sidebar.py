@@ -11,7 +11,7 @@ def render_sidebar():
     """Render the full sidebar with logo, Juz navigation, and audio controls."""
 
     with st.sidebar:
-        # ── Logo & Branding ───────────────────────────────────────
+        #  Logo & Branding 
         logo_b64 = get_logo_base64()
         if logo_b64:
             st.html(
@@ -41,7 +41,7 @@ def render_sidebar():
             """
         )
 
-        # ── Juz Navigation ────────────────────────────────────────
+        #  Juz Navigation ─
         st.markdown(
             '<p style="font-size:0.7rem; font-weight:700; color:#94a3b8; text-transform:uppercase; '
             'letter-spacing:0.1em; padding: 0 0.5rem; margin-bottom: 0.5rem;">Juz Navigation</p>',
@@ -97,7 +97,7 @@ def render_sidebar():
                     st.session_state.is_playing = False
                     st.rerun()
 
-        # ── Audio Controls ────────────────────────────────────────
+        #  Audio Controls ─
         st.markdown("---")
         st.markdown(
             '<p style="font-size:0.7rem; color:#94a3b8; margin-bottom:0.25rem;">Audio Recitation</p>',

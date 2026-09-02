@@ -17,7 +17,7 @@ from utils.logger import get_logger
 log = get_logger("hadith_api")
 
 
-# ── Primary: sunnah.com API ──────────────────────────────────────
+#  Primary: sunnah.com API ─
 
 def _fetch_from_sunnah_api(
     ayah_text_english: str,
@@ -56,7 +56,7 @@ def _fetch_from_sunnah_api(
         return []
 
 
-# ── Fallback: Tavily Web Search (commentary only) ───────────────
+#  Fallback: Tavily Web Search (commentary only) ─
 
 def _fetch_web_commentary_fallback(
     ayah_text_english: str,
@@ -135,7 +135,7 @@ def _fetch_web_commentary_fallback(
     return normalized[:max_results]
 
 
-# ── Public Interface ─────────────────────────────────────────────
+#  Public Interface 
 
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_related_hadith(

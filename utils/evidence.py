@@ -5,7 +5,7 @@ Provides shared confidence formatting for all UI surfaces.
 """
 
 
-# ── Shared Confidence Formatter ──────────────────────────────────
+#  Shared Confidence Formatter ─
 def format_confidence(
     status: str,
     source_type: str = "",

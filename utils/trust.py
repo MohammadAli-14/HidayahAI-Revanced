@@ -5,7 +5,7 @@ Centralised hostname validation for all external source pipelines.
 
 from urllib.parse import urlparse
 
-# ── Trusted Domains by Category ──────────────────────────────────
+#  Trusted Domains by Category ─
 HADITH_TRUSTED_DOMAINS = [
     "sunnah.com",
 ]

@@ -1,6 +1,7 @@
 """
 Hidayah AI — Chat Panel Component
-Renders the Scholar Agent right panel: chat history, input area, PDF upload, and intent routing.
+Renders the Scholar Agent right panel: chat history, input area,
+persistent LanceDB document management, and intent routing.
 """
 
 import streamlit as st
@@ -11,9 +12,10 @@ from utils.evidence import format_confidence
 from utils.sanitize import escape_html
 from agents.router import classify_intent
 from agents.scholar import get_scholar_response
-from rag.pdf_loader import extract_and_chunk
+from rag.smart_loader import load_and_chunk_pdf
 from rag.vector_store import build_index
 from rag.query import query_pdf
+from rag.lancedb_store import IslamicLanceStore
 
 
 def _split_answer_and_sources(content: str):
@@ -70,10 +72,8 @@ def _split_answer_and_sources(content: str):
 
 def _render_chat_header():
     """Render the Scholar Agent header with an integrated close button."""
-    
-    # Header Layout: Content + Close Button
     col_head, col_close = st.columns([0.85, 0.15])
-    
+
     with col_head:
         st.html(
             f"""
@@ -96,15 +96,12 @@ def _render_chat_header():
             </div>
             """
         )
-    
+
     with col_close:
-        # This button is intended for mobile but functional everywhere.
-        # We'll hide it on large screens via CSS in app.py or chat_panel.
         if st.button("✕", key="btn_close_scholar_panel", help="Close Scholar Panel"):
             st.session_state.show_scholar_agent = False
             st.rerun()
 
-    # Style the column container to look like a header
     st.html(
         """
         <style>
@@ -115,7 +112,6 @@ def _render_chat_header():
             padding: 0.5rem 1rem !important;
             margin-bottom: 1rem !important;
         }
-        /* Mobile Close Button Styling */
         .st-key-btn_close_scholar_panel button {
             background: transparent !important;
             border: none !important;
@@ -124,7 +120,6 @@ def _render_chat_header():
             padding: 0 !important;
             width: 100% !important;
         }
-        /* Hide on Desktop */
         @media (min-width: 993px) {
             .st-key-btn_close_scholar_panel {
                 display: none !important;
@@ -137,9 +132,8 @@ def _render_chat_header():
 
 def _render_error_message(content: str, timestamp: str):
     """Render a premium error message bubble."""
-    # Strip the prefix for display
     display_content = content.replace("⚠️", "").strip()
-    
+
     st.html(
         f"""
         <div class="animate-reveal" style="margin-bottom: 1.25rem; font-family: Inter, sans-serif; display: flex; flex-direction: column; align-items: center;">
@@ -174,8 +168,6 @@ def _render_error_message(content: str, timestamp: str):
 
 def _render_message(role: str, content: str, timestamp: str, intent_badge: str = ""):
     """Render a single chat message bubble."""
-
-    # Route to error renderer if content starts with the error prefix
     if content.startswith("⚠️"):
         _render_error_message(content, timestamp)
         return
@@ -183,9 +175,8 @@ def _render_message(role: str, content: str, timestamp: str, intent_badge: str =
     if role == "assistant":
         answer_body, sources = _split_answer_and_sources(content)
         is_pdf = "PDF" in (intent_badge or "")
-        # Different border color for PDF-sourced answers to visually distinguish from Islamic scholarship
         border_style = "border: 1px solid rgba(59, 130, 246, 0.3);" if is_pdf else "border: 1px solid var(--glass-border);"
-        pdf_notice = '<p style="font-size:0.6rem;color:#60a5fa;margin:0 0 0.5rem 0;font-weight:600;">📄 Based on uploaded PDF — not verified Islamic scholarship</p>' if is_pdf else ""
+        pdf_notice = '<p style="font-size:0.6rem;color:#60a5fa;margin:0 0 0.5rem 0;font-weight:600;">📄 Grounded in Research Document (LanceDB Hybrid RAG)</p>' if is_pdf else ""
         st.html(
             f"""
             <div class="animate-reveal" style="margin-bottom: 1.25rem; font-family: Inter, sans-serif;">
@@ -213,7 +204,6 @@ def _render_message(role: str, content: str, timestamp: str, intent_badge: str =
             sources_html = []
             for source in sources:
                 label = escape(source["label"])
-                # Use shared confidence formatter instead of raw canonical status
                 source_type = (source.get("type") or "source").lower()
                 confidence = format_confidence(
                     status=source.get("canonical", "unverified"),
@@ -282,7 +272,6 @@ def _render_message(role: str, content: str, timestamp: str, intent_badge: str =
 
 def _process_query(query: str, ayahs: list[dict]):
     """Process a user query: classify intent → route → generate response."""
-
     timestamp = datetime.now().strftime("%I:%M %p")
 
     # Add user message to history
@@ -297,7 +286,6 @@ def _process_query(query: str, ayahs: list[dict]):
     active_pdf_name = st.session_state.get("uploaded_pdf_name")
     intent = classify_intent(query, active_pdf_name=active_pdf_name)
 
-    # Map intent to human-readable badge
     badge_map = {
         "VERSE_LOOKUP": "📖 Verse Lookup",
         "SCHOLARLY_RESEARCH": "🔍 Web Research",
@@ -305,15 +293,16 @@ def _process_query(query: str, ayahs: list[dict]):
     }
     badge = badge_map.get(intent, "")
 
-    # Generate response based on intent
     if intent == "PDF_ANALYSIS":
-        # Use RAG pipeline
+        # LanceDB Hybrid RAG pipeline
         index = st.session_state.get("faiss_index")
         chunks = st.session_state.get("pdf_chunks", [])
-        if index is not None and chunks:
-            response = query_pdf(query, index, chunks)
-        else:
-            response = "⚠️ No PDF uploaded yet. Please upload a PDF using the 📎 button below."
+        response = query_pdf(
+            question=query,
+            index=index,
+            chunks=chunks,
+            filename_filter=active_pdf_name,
+        )
     else:
         visible_window = st.session_state.get("visible_ayah_window", ayahs[:10] if ayahs else [])
         tafsir_language = st.session_state.get("tafsir_language", "en")
@@ -322,7 +311,6 @@ def _process_query(query: str, ayahs: list[dict]):
             audio_mode = st.session_state.get("audio_mode", "")
             tafsir_language = "ur" if "Urdu" in audio_mode else "en"
 
-        # Use scholar agent (handles both VERSE_LOOKUP and SCHOLARLY_RESEARCH)
         response = get_scholar_response(
             query=query,
             intent=intent,
@@ -341,11 +329,10 @@ def _process_query(query: str, ayahs: list[dict]):
 
 
 def render_chat_panel(ayahs: list[dict]):
-    """Render the full Scholar Agent chat panel."""
-
+    """Render the full Scholar Agent chat panel with persistent LanceDB document store."""
     _render_chat_header()
 
-    # ── Chat Input (placed FIRST so it's always visible) ──────
+    # Chat Input
     st.markdown(
         """
         <style>
@@ -374,16 +361,15 @@ def render_chat_panel(ayahs: list[dict]):
         _process_query(query, ayahs)
         st.rerun()
 
-    # ── Chat History ──────────────────────────────────────────
-    chat_container = st.container(height=420)
+    # Chat History
+    chat_container = st.container(height=400)
 
     with chat_container:
         if not st.session_state.chat_history:
-            # Welcome message
             _render_message(
                 "assistant",
                 "Assalamu Alaykum! I'm your AI Scholar companion. Ask me about any verse, "
-                "request scholarly research, or upload a PDF for analysis. How can I help you today?",
+                "request scholarly research, or upload research PDFs for persistent hybrid analysis. How can I help you today?",
                 datetime.now().strftime("%I:%M %p"),
             )
         else:
@@ -395,8 +381,11 @@ def render_chat_panel(ayahs: list[dict]):
                     msg.get("intent_badge", ""),
                 )
 
-    # ── PDF Upload (collapsible) ──────────────────────────────
-    with st.expander("📎 Research PDF Analysis", expanded=False):
+    # PDF Ingestion & LanceDB Document Manager
+    lance_store = IslamicLanceStore()
+    indexed_docs = lance_store.list_indexed_documents() if lance_store.is_available() else []
+
+    with st.expander("📎 Research PDF Analysis (LanceDB Hybrid RAG)", expanded=False):
         uploaded_file = st.file_uploader(
             "Upload scholarly PDF",
             type=["pdf"],
@@ -405,31 +394,58 @@ def render_chat_panel(ayahs: list[dict]):
         )
 
         if uploaded_file and uploaded_file.name != st.session_state.get("uploaded_pdf_name"):
-            with st.spinner("📄 Processing PDF..."):
-                chunks = extract_and_chunk(uploaded_file)
+            with st.spinner(f"📄 Ingesting & indexing '{uploaded_file.name}' with PyMuPDF & LanceDB..."):
+                chunks = load_and_chunk_pdf(uploaded_file, filename=uploaded_file.name)
                 if chunks:
-                    index, embeddings = build_index(chunks)
+                    index, embeddings = build_index(chunks, filename=uploaded_file.name)
                     if isinstance(index, str) and "⚠️ 429" in index:
-                        st.error("⚠️ **Scholar Agent is currently resting.** Hidayah AI is receiving a high volume of requests. Please wait a moment and try again.")
-                    elif index is not None:
+                        st.error("⚠️ **Scholar Agent is currently resting.** Embedding rate limit reached. Please try again in a moment.")
+                    elif index is not None or embeddings is not None:
                         st.session_state.faiss_index = index
                         st.session_state.pdf_chunks = chunks
                         st.session_state.pdf_embeddings = embeddings
                         st.session_state.uploaded_pdf_name = uploaded_file.name
-                        st.success(f"✅ PDF loaded: {uploaded_file.name} ({len(chunks)} chunks indexed)")
+                        st.success(f"✅ Indexed {len(chunks)} chunks into LanceDB Hybrid Store!")
+                        st.rerun()
                     else:
-                        st.error("❌ Embedding failed. Please check your connection and try again.")
+                        st.error("❌ Embedding failed. Please check your connection.")
                 else:
                     st.error("❌ Failed to extract text from PDF.")
 
+        # Display Indexed Documents & Active Filter
+        if indexed_docs:
+            st.markdown(
+                '<p style="font-size:0.68rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin:0.8rem 0 0.4rem 0;">'
+                'Persistent Research Documents in LanceDB:</p>',
+                unsafe_allow_html=True,
+            )
+            for doc in indexed_docs:
+                col_name, col_del = st.columns([0.8, 0.2])
+                doc_name = doc["filename"]
+                is_active = doc_name == st.session_state.get("uploaded_pdf_name")
+                badge = " (Active)" if is_active else ""
+
+                with col_name:
+                    if st.button(f"📄 {doc_name} [{doc['chunk_count']} chunks]{badge}", key=f"sel_{doc_name}"):
+                        st.session_state.uploaded_pdf_name = doc_name
+                        st.rerun()
+
+                with col_del:
+                    if st.button("🗑️", key=f"del_{doc_name}", help=f"Delete {doc_name}"):
+                        lance_store.delete_document(doc_name)
+                        if st.session_state.get("uploaded_pdf_name") == doc_name:
+                            st.session_state.uploaded_pdf_name = None
+                        st.rerun()
+
         if st.session_state.get("uploaded_pdf_name"):
             st.markdown(
-                f'<p style="font-size:0.7rem;color:#10b981;margin:0;">📄 Active: {st.session_state.uploaded_pdf_name}</p>',
+                f'<p style="font-size:0.7rem;color:#10b981;margin-top:0.4rem;font-weight:600;">'
+                f'🎯 Focused Document: <strong>{st.session_state.uploaded_pdf_name}</strong></p>',
                 unsafe_allow_html=True,
             )
 
-    # ── Disclaimer ────────────────────────────────────────────
+    # Global Disclaimer
     st.html(
         '<p style="text-align:center; font-size:0.6rem; color:#64748b; margin-top:0.25rem; font-family:Inter,sans-serif;">'
-        'AI can make mistakes. Verify with qualified scholars.</p>'
+        'AI can make mistakes. Verify religious rulings with qualified scholars.</p>'
     )

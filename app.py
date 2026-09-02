@@ -27,10 +27,10 @@ from ui.audio_player import render_audio_player
 from ui.chat_panel import render_chat_panel
 
 
-# ── Initialize Session State ─────────────────────────────────
+# Initialize Session State
 init_session_state()
 
-# ── Inject Global CSS & Fonts (Tailwind + Custom) ────────────
+# Inject Global CSS & Fonts (Tailwind + Custom)
 st.markdown(
     """
     <!-- Google Fonts -->
@@ -45,7 +45,7 @@ st.markdown(
 st.markdown(
     f"""
     <style>
-        /* ── Design Tokens & Variables ────────────────────── */
+        /*  Design Tokens & Variables*/
         :root {{
             --gold: #D4AF37;
             --gold-light: #F3E5AB;
@@ -56,7 +56,7 @@ st.markdown(
             --premium-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
         }}
 
-        /* ── Global Reset & Theme ─────────────────────────── */
+        /*  Global Reset & Theme  */
         [data-testid="stAppViewContainer"] {{
             background-color: var(--bg-dark) !important;
             background-image: 
@@ -66,7 +66,7 @@ st.markdown(
             font-family: 'Inter', sans-serif !important;
         }}
 
-        /* ── Hide Streamlit Default Chrome ─────────────────── */
+        /*  Hide Streamlit Default Chrome  */
         #MainMenu {{visibility: hidden;}}
         footer {{visibility: hidden;}}
         .stDeployButton {{display: none;}}
@@ -77,7 +77,7 @@ st.markdown(
             background: transparent !important;
         }}
 
-        /* ── Sidebar Toggle (hamburger) ─── */
+        /*  Sidebar Toggle (hamburger) ─ */
         [data-testid="collapsedControl"] {{
             visibility: visible !important;
             display: flex !important;
@@ -104,7 +104,7 @@ st.markdown(
             box-shadow: 0 0 15px rgba(212, 175, 55, 0.2) !important;
         }}
 
-        /* ── Sidebar Close (X) button ─────── */
+        /*  Sidebar Close (X) button ─ */
         [data-testid="stSidebarCollapse"] {{
             position: absolute !important;
             top: 0.75rem !important;
@@ -119,14 +119,14 @@ st.markdown(
             transition: all 0.2s ease !important;
         }}
 
-        /* ── Main Container Padding ───────────────────────── */
+        /*  Main Container Padding  */
         .block-container {{
             padding-top: 1rem !important;
             padding-bottom: 2rem !important;
             max-width: 95rem !important;
         }}
 
-        /* ── Sidebar Styling ───────────────────────────────── */
+        /*  Sidebar Styling  */
         [data-testid="stSidebar"] {{
             background: rgba(15, 23, 42, 0.98) !important;
             backdrop-filter: blur(20px);
@@ -136,7 +136,7 @@ st.markdown(
             padding-top: 3.5rem !important;
         }}
 
-        /* ── Premium Glass Panels ─────────────────────────── */
+        /*  Premium Glass Panels  */
         .glass-panel {{
             background: var(--glass-bg);
             backdrop-filter: blur(16px);
@@ -156,7 +156,7 @@ st.markdown(
             pointer-events: none;
         }}
 
-        /* ── Responsive Column Control (CRITICAL) ─────────── */
+        /*  Responsive Column Control (CRITICAL) ─ */
         @media (max-width: 992px) {{
             /* On tablet/mobile, force columns to stack */
             [data-testid="stHorizontalBlock"] {{
@@ -188,7 +188,7 @@ st.markdown(
             to {{ transform: translateY(0); }}
         }}
 
-        /* ── Buttons, Inputs & Micro-interactions ─────────── */
+        /*  Buttons, Inputs & Micro-interactions ─ */
         .stButton > button {{
             background: rgba(255, 255, 255, 0.03) !important;
             border: 1px solid var(--glass-border) !important;
@@ -213,12 +213,12 @@ st.markdown(
             background: rgba(212, 175, 55, 0.05) !important;
         }}
 
-        /* ── Scrollbar (Premium Gold Thin) ────────────────── */
+        /*  Scrollbar (Premium Gold Thin)  */
         ::-webkit-scrollbar {{ width: 5px; height: 5px; }}
         ::-webkit-scrollbar-track {{ background: transparent; }}
         ::-webkit-scrollbar-thumb {{ background: var(--gold); border-radius: 0; }}
         
-        /* ── Animations ───────────────────────────────────── */
+        /*  Animations  */
         @keyframes fadeInSlide {{
             from {{ opacity: 0; transform: translateY(10px); }}
             to {{ opacity: 1; transform: translateY(0); }}
@@ -232,11 +232,11 @@ st.markdown(
 )
 
 
-# ── Sidebar ───────────────────────────────────────────────────
+#  Sidebar ─
 render_sidebar()
 
 
-# ── Fetch Quran Data ──────────────────────────────────────────
+#  Fetch Quran Data ─
 current_juz = st.session_state.get("current_juz", 1)
 
 # Fetch data if not already loaded or juz changed
@@ -250,7 +250,7 @@ ayahs = st.session_state.ayahs
 current_ayah_index = st.session_state.get("current_ayah_index", 0)
 
 
-# ── Main Layout: Quran View (left) + Chat Panel (right) ──────
+#  Main Layout: Quran View (left) + Chat Panel (right) 
 show_chat = st.session_state.get("show_scholar_agent", False)
 
 if show_chat:
@@ -284,7 +284,7 @@ if col_chat is not None:
         # Scholar Agent chat panel
         render_chat_panel(ayahs)
 
-# ── Global Scroll Lock for Mobile ────────────────────────────
+#  Global Scroll Lock for Mobile ─
 if show_chat:
     st.html(
         """
@@ -302,7 +302,7 @@ if show_chat:
         """
     )
 
-# ── Sync URL Parameters (Smart Resume Persistence) ────────────
+#  Sync URL Parameters (Smart Resume Persistence) 
 # Pushing these to the URL bar allows browsers to intrinsically remember 
 # the last read location via their history/autocomplete mechanisms without 
 # requiring a dedicated backend database.
@@ -310,7 +310,7 @@ st.query_params["juz"] = st.session_state.get("current_juz", 1)
 st.query_params["ayah"] = st.session_state.get("current_ayah_index", 0)
 st.query_params["mode"] = st.session_state.get("audio_mode", "Arabic (Mishary Rashid)")
 
-# ── Global Disclaimer ────────────────────────────────────────────
+#  Global Disclaimer ─
 st.html(
     '<div style="text-align:center; padding:1rem 0 0.5rem 0; border-top:1px solid rgba(148,163,184,0.08); margin-top:2rem;">'
     '<p style="font-size:0.6rem; color:#64748b; font-family:Inter,sans-serif; margin:0;">'

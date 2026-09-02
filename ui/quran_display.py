@@ -184,7 +184,7 @@ def render_quran_view(ayahs: list[dict], current_index: int = 0):
         """
     )
 
-    # ── Pagination Controls ───────────────────────────────────
+    #  Pagination Controls 
     st.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
 
     col_prev, col_info, col_next = st.columns([1, 2, 1])
@@ -213,7 +213,7 @@ def render_quran_view(ayahs: list[dict], current_index: int = 0):
                 st.session_state.last_ayah = end
                 st.rerun()
 
-    # ── Tafseer + Hadith Context Panel ───────────────────────
+    #  Tafseer + Hadith Context Panel 
     active_idx = min(st.session_state.get("current_ayah_index", 0), len(ayahs) - 1)
     try:
         render_verse_context_panel(ayahs[active_idx])

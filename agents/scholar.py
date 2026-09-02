@@ -1,14 +1,23 @@
 """
 Hidayah AI — Scholar Agent
-Uses Gemini 2.5 Flash for grounded scholarly responses with strict citation rules.
-Routes to appropriate data source based on classified intent.
+Uses Gemini 2.5 Flash for grounded scholarly responses with strict citation rules,
+Islamic theological guardrails, and citation verification.
 """
 
 from google import genai
-from utils.config import MODEL_SCHOLAR, GEMINI_API_KEY, get_gemini_client
+import requests
+from utils.config import (
+    MODEL_SCHOLAR,
+    GEMINI_API_KEY,
+    get_gemini_client,
+    USE_LOCAL_LLM,
+    LOCAL_LLM_URL,
+    LOCAL_LLM_MODEL,
+)
 from agents.web_search import search_web
 from agents.context_retriever import get_context_bundle_for_window
 from utils.trust import is_trusted_scholarly
+from utils.islamic_guardrails import check_fatwa_sensitivity, verify_grounded_citations
 from utils.logger import get_logger
 
 log = get_logger("scholar")
@@ -36,6 +45,27 @@ Guidelines:
 You serve as a bridge between classical Islamic scholarship and modern seekers of knowledge."""
 
 
+def _generate_scholar_local(prompt: str) -> str | None:
+    """Generate scholarly response using local Ollama/vLLM instance."""
+    try:
+        payload = {
+            "model": LOCAL_LLM_MODEL,
+            "messages": [
+                {"role": "system", "content": SCHOLAR_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.3,
+            "max_tokens": 2048,
+        }
+        res = requests.post(f"{LOCAL_LLM_URL}/chat/completions", json=payload, timeout=60)
+        if res.status_code == 200:
+            data = res.json()
+            return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        log.warning(f"Local LLM fallback failed in scholar agent: {e}")
+    return None
+
+
 def get_scholar_response(
     query: str,
     intent: str,
@@ -45,7 +75,7 @@ def get_scholar_response(
     pdf_context: str | None = None,
 ) -> str:
     """
-    Generate a scholarly response using Gemini 2.5 Pro.
+    Generate a scholarly response using Gemini 2.5 (or local LLM) with strict Islamic guardrails.
 
     Args:
         query: User's question
@@ -54,15 +84,19 @@ def get_scholar_response(
         pdf_context: Retrieved PDF chunks (for RAG answers)
 
     Returns:
-        Formatted response string
+        Formatted response string with verified citations and sources
     """
+    # 1. Pre-query Fatwa Sensitivity Gate
+    fatwa_guard = check_fatwa_sensitivity(query)
+    if fatwa_guard:
+        return fatwa_guard
+
     client = get_gemini_client()
-    if not client:
+    if not client and not USE_LOCAL_LLM:
         return "⚠️ **Gemini API key not configured.** Please add `GEMINI_API_KEY` to your settings (Secrets on Streamlit Cloud or .env locally)."
 
     try:
         log.info(f"Assembling context. Intent: {intent}")
-        # Build context based on intent
         context_parts = []
         grounded_sources = []
 
@@ -71,9 +105,9 @@ def get_scholar_response(
 
             # Provide current verse context
             verses_text = "\n".join(
-                f"[{a['surah_name']} {a['number_in_surah']}] Arabic: {a['arabic']}\n"
-                f"English: {a['english']}\nUrdu: {a['urdu']}"
-                for a in window[:10]  # Limit context size
+                f"[{a.get('surah_name', '')} {a.get('number_in_surah', '')}] Arabic: {a.get('arabic', '')}\n"
+                f"English: {a.get('english', '')}\nUrdu: {a.get('urdu', '')}"
+                for a in window[:10]
             )
             context_parts.append(f"Currently viewing these Quranic verses:\n{verses_text}")
 
@@ -158,30 +192,42 @@ def get_scholar_response(
                 )
 
         elif intent == "PDF_ANALYSIS" and pdf_context:
-            context_parts.append(f"Relevant excerpts from the uploaded PDF:\n{pdf_context}")
+            context_parts.append(f"Relevant excerpts from the uploaded document:\n{pdf_context}")
 
         # Assemble the full prompt
         full_prompt = query
+        context_str = ""
         if context_parts:
             context_str = "\n\n---\n\n".join(context_parts)
             full_prompt = f"Context:\n{context_str}\n\n---\n\nUser Question: {query}"
 
-        log.info(f"Sending final prompt to {MODEL_SCHOLAR} (Context parts: {len(context_parts)})")
-        response = client.models.generate_content(
-            model=MODEL_SCHOLAR,
-            contents=full_prompt,
-            config=genai.types.GenerateContentConfig(
-                system_instruction=SCHOLAR_SYSTEM_PROMPT,
-                temperature=0.3,
-                max_output_tokens=2048,
-            ),
-        )
+        # 2. Generation (Local LLM or Gemini)
+        answer = None
+        if USE_LOCAL_LLM:
+            answer = _generate_scholar_local(full_prompt)
 
-        if not response.text:
-            return "⚠️ **Scholar Agent error:** The model returned an empty response. This might be due to safety filters or a temporary connection issue."
+        if not answer and client:
+            log.info(f"Sending final prompt to {MODEL_SCHOLAR} (Context parts: {len(context_parts)})")
+            response = client.models.generate_content(
+                model=MODEL_SCHOLAR,
+                contents=full_prompt,
+                config=genai.types.GenerateContentConfig(
+                    system_instruction=SCHOLAR_SYSTEM_PROMPT,
+                    temperature=0.3,
+                    max_output_tokens=2048,
+                ),
+            )
+            answer = response.text
+
+        if not answer:
+            return "⚠️ **Scholar Agent error:** The model returned an empty response. Please try again."
 
         log.info("Response generated successfully.")
-        answer = response.text
+
+        # 3. Post-generation Citation Verification
+        if context_str:
+            answer = verify_grounded_citations(answer, context_str)
+
         if grounded_sources:
             answer += "\n\nSources:\n" + "\n".join(f"- {src}" for src in grounded_sources)
         return answer
@@ -191,4 +237,5 @@ def get_scholar_response(
             return "⚠️ **Scholar Agent is currently resting.** Hidayah AI is receiving a high volume of requests. Please wait a moment and try again."
         return f"⚠️ **API Error:** {str(e.message) if hasattr(e, 'message') else str(e)}"
     except Exception as e:
+        log.error(f"Scholar Agent error: {e}")
         return f"⚠️ **Scholar Agent error:** An unexpected error occurred. Please try again."

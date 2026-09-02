@@ -1,16 +1,21 @@
 """
-Hidayah AI — FAISS Vector Store
-Embeds text chunks using Gemini text-embedding-004 and stores in a FAISS index.
+Hidayah AI — Vector Store & Embedding Engine
+Provides dense vector embeddings (Gemini embedding-001 or local fallback)
+and integrates with LanceDB persistent storage.
 """
 
+import time
 import numpy as np
 from google import genai
 from utils.config import MODEL_EMBEDDING, GEMINI_API_KEY, get_gemini_client
+from utils.logger import get_logger
+
+log = get_logger("vector_store")
 
 
 def embed_texts(texts: list[str], task_type: str = "retrieval_document") -> np.ndarray | None:
     """
-    Embed a list of text chunks using Gemini text-embedding-004.
+    Embed a list of text chunks using Gemini embedding-001 with retry & backoff.
 
     Args:
         texts: List of text strings to embed
@@ -25,119 +30,171 @@ def embed_texts(texts: list[str], task_type: str = "retrieval_document") -> np.n
 
     try:
         embeddings = []
-        # Process in batches of 100 (API limit)
-        batch_size = 100
+        batch_size = 20  # Reduced batch size for rate-limit protection
+
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
-            # google-genai SDK: embed_content accepts a single string via contents
-            # For batches, embed one at a time for reliability
             for text in batch:
-                result = client.models.embed_content(
-                    model=MODEL_EMBEDDING,
-                    contents=text,
-                )
-                # result.embeddings is a list; single input → one element
-                if result.embeddings:
-                    embeddings.append(result.embeddings[0].values)
+                if not text.strip():
+                    continue
+
+                # Retry with backoff for 429
+                retries = 3
+                while retries > 0:
+                    try:
+                        result = client.models.embed_content(
+                            model=MODEL_EMBEDDING,
+                            contents=text,
+                        )
+                        if result.embeddings:
+                            embeddings.append(result.embeddings[0].values)
+                        break
+                    except genai.errors.APIError as e:
+                        if e.code == 429:
+                            retries -= 1
+                            if retries == 0:
+                                log.warning("Hit 429 rate limit on embedding.")
+                                return "⚠️ 429"
+                            time.sleep(1.5)
+                        else:
+                            raise e
 
         if not embeddings:
             return None
 
         return np.array(embeddings, dtype=np.float32)
 
-    except genai.errors.APIError as e:
-        if e.code == 429:
-            return "⚠️ 429"
-        print(f"[VectorStore] Embedding API error: {e}")
-        return None
     except Exception as e:
-        print(f"[VectorStore] Embedding error: {e}")
+        log.error(f"Embedding error: {e}")
         return None
 
 
-def build_index(chunks: list[str]):
+def embed_single_query(query: str) -> list[float] | None:
+    """Embed a single query string into a vector."""
+    res = embed_texts([query], task_type="retrieval_query")
+    if isinstance(res, str) and "⚠️ 429" in res:
+        return "⚠️ 429"
+    if res is not None and len(res) > 0:
+        return res[0].tolist()
+    return None
+
+
+def build_index(chunks: list[dict] | list[str], filename: str = "document.pdf"):
     """
-    Build a FAISS index from text chunks.
+    Build and store embeddings into both LanceDB (persistent) and FAISS (in-memory).
 
     Args:
-        chunks: List of text chunks
+        chunks: List of chunk dicts from smart_loader or list of string chunks
+        filename: Document filename
 
     Returns:
-        Tuple of (faiss.Index, np.ndarray) or (None, None) on failure
+        Tuple of (store_status, embeddings)
     """
     if not chunks:
         return None, None
 
-    embeddings = embed_texts(chunks, task_type="retrieval_document")
+    # Handle string chunks vs dict chunks
+    if isinstance(chunks[0], dict):
+        text_list = [c.get("clean_text") or c.get("text", "") for c in chunks]
+        structured_chunks = chunks
+    else:
+        text_list = chunks
+        structured_chunks = [
+            {"id": f"{filename}_c{i}", "text": t, "page": 1, "filename": filename, "chunk_index": i}
+            for i, t in enumerate(chunks)
+        ]
+
+    embeddings = embed_texts(text_list, task_type="retrieval_document")
     if isinstance(embeddings, str) and "⚠️ 429" in embeddings:
         return "⚠️ 429", None
     if embeddings is None:
         return None, None
 
+    # 1. Index into LanceDB (Persistent + FTS)
+    try:
+        from rag.lancedb_store import IslamicLanceStore
+
+        lance_store = IslamicLanceStore()
+        if lance_store.is_available():
+            lance_store.index_chunks(structured_chunks, embeddings, replace_existing_file=True)
+            log.info(f"Indexed {len(structured_chunks)} chunks in LanceDB for '{filename}'")
+    except Exception as lance_err:
+        log.warning(f"LanceDB indexing notice: {lance_err}")
+
+    # 2. Build in-memory FAISS index as fallback
     try:
         import faiss
 
-        # Normalize for cosine similarity
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-        norms[norms == 0] = 1  # Avoid division by zero
+        norms[norms == 0] = 1
         normalized = embeddings / norms
 
-        # Build index
         dimension = normalized.shape[1]
-        index = faiss.IndexFlatIP(dimension)  # Inner product on normalized = cosine similarity
+        index = faiss.IndexFlatIP(dimension)
         index.add(normalized)
 
         return index, embeddings
-
-    except ImportError:
-        print("[VectorStore] FAISS not installed. Run: pip install faiss-cpu")
-        return None, None
-    except Exception as e:
-        print(f"[VectorStore] Index build error: {e}")
-        return None, None
+    except Exception as faiss_err:
+        log.warning(f"FAISS index notice: {faiss_err}")
+        return "LANCEDB_READY", embeddings
 
 
-def search_index(query: str, index, chunks: list[str], top_k: int = 5) -> list[str]:
+def search_index(
+    query: str,
+    index,
+    chunks: list[dict] | list[str],
+    top_k: int = 5,
+    filename_filter: str | None = None,
+) -> list[dict] | list[str]:
     """
-    Search the FAISS index for chunks most similar to the query.
-
-    Args:
-        query: Search query string
-        index: FAISS index
-        chunks: Original text chunks (aligned with index)
-        top_k: Number of results to return
-
-    Returns:
-        List of most relevant text chunks
+    Search for relevant chunks using LanceDB Hybrid Search (with RRF)
+    or FAISS vector search fallback.
     """
-    if index is None or not chunks:
+    if not chunks or not query:
         return []
 
-    query_embedding = embed_texts([query], task_type="retrieval_query")
-    if isinstance(query_embedding, str) and "⚠️ 429" in query_embedding:
-        return "⚠️ 429"
-    if query_embedding is None:
-        return []
-
+    # 1. Try LanceDB Hybrid Search (BM25 + Vector)
     try:
-        import faiss
+        from rag.lancedb_store import IslamicLanceStore
+        from rag.reranker import rerank_passages
 
-        # Normalize query embedding
-        norm = np.linalg.norm(query_embedding, axis=1, keepdims=True)
-        if norm[0][0] == 0:
-            return []
-        query_normalized = query_embedding / norm
+        lance_store = IslamicLanceStore()
+        if lance_store.is_available():
+            query_vector = embed_single_query(query)
+            if isinstance(query_vector, str) and "⚠️ 429" in query_vector:
+                return "⚠️ 429"
 
-        # Search
-        scores, indices = index.search(query_normalized, min(top_k, len(chunks)))
+            lance_results = lance_store.hybrid_search(
+                query_text=query,
+                query_vector=query_vector if isinstance(query_vector, list) else None,
+                filename_filter=filename_filter,
+                top_k=top_k * 3,  # Retrieve more for cross-encoder reranking
+            )
+            if lance_results:
+                reranked = rerank_passages(query, lance_results, top_k=top_k)
+                return reranked
+    except Exception as lance_search_err:
+        log.warning(f"LanceDB search fallback: {lance_search_err}")
 
-        results = []
-        for idx in indices[0]:
-            if 0 <= idx < len(chunks):
-                results.append(chunks[idx])
+    # 2. Fallback to FAISS
+    if index is not None and index != "LANCEDB_READY":
+        try:
+            import faiss
 
-        return results
+            query_embedding = embed_texts([query], task_type="retrieval_query")
+            if isinstance(query_embedding, str) and "⚠️ 429" in query_embedding:
+                return "⚠️ 429"
+            if query_embedding is not None:
+                norm = np.linalg.norm(query_embedding, axis=1, keepdims=True)
+                if norm[0][0] != 0:
+                    query_normalized = query_embedding / norm
+                    scores, indices = index.search(query_normalized, min(top_k, len(chunks)))
+                    results = []
+                    for idx in indices[0]:
+                        if 0 <= idx < len(chunks):
+                            results.append(chunks[idx])
+                    return results
+        except Exception as faiss_err:
+            log.error(f"FAISS search fallback error: {faiss_err}")
 
-    except Exception as e:
-        print(f"[VectorStore] Search error: {e}")
-        return []
+    return []

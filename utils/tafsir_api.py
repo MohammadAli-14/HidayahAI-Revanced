@@ -193,7 +193,7 @@ def fetch_multisource_tafseer_for_ayah(
     requested_language = (language or "").strip().lower()
     tafseer_items = []
 
-    # ── Step 1: Try Quran.com v4 for EN/UR (real tafseer) ────────
+    #  Step 1: Try Quran.com v4 for EN/UR (real tafseer) 
     if requested_language in {"en", "ur"}:
         try:
             from utils.qurancom_api import fetch_multisource_tafseer_for_ayah as qurancom_fetch
@@ -209,7 +209,7 @@ def fetch_multisource_tafseer_for_ayah(
         except Exception as e:
             log.warning(f"Quran.com v4 provider error: {e}")
 
-    # ── Step 2: AlQuran.cloud (primary for AR, fallback for EN/UR) ──
+    #  Step 2: AlQuran.cloud (primary for AR, fallback for EN/UR) 
     tafseer_items = _fetch_from_alquran_cloud(
         surah_number=surah_number,
         ayah_number=ayah_number,
@@ -220,7 +220,7 @@ def fetch_multisource_tafseer_for_ayah(
     if tafseer_items:
         return tafseer_items[:max_sources]
 
-    # ── Step 3: Language fallback — try AR if EN/UR returned nothing ──
+    #  Step 3: Language fallback — try AR if EN/UR returned nothing 
     if requested_language in {"en", "ur"}:
         log.info(f"No tafseer for {requested_language}, falling back to Arabic")
         tafseer_items = _fetch_from_alquran_cloud(
@@ -232,7 +232,7 @@ def fetch_multisource_tafseer_for_ayah(
             requested_language=requested_language,
         )
 
-    # ── Step 4: Last resort — try Quran.com for AR ──
+    #  Step 4: Last resort — try Quran.com for AR 
     if not tafseer_items and requested_language == "ar":
         try:
             from utils.qurancom_api import fetch_multisource_tafseer_for_ayah as qurancom_fetch
