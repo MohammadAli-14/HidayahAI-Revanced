@@ -288,8 +288,10 @@ def _process_query(query: str, ayahs: list[dict]):
 
     badge_map = {
         "VERSE_LOOKUP": "📖 Verse Lookup",
-        "SCHOLARLY_RESEARCH": "🔍 Web Research",
-        "PDF_ANALYSIS": "📄 PDF Analysis",
+        "SCHOLARLY_RESEARCH": "📚 Canonical & Scholarly Research",
+        "SENSITIVE_FIQH": "⚖️ Jurisprudential Guidance",
+        "HADITH_AUTHENTICATION": "📜 Hadith Takhrij & Authentication",
+        "PDF_ANALYSIS": "📄 Document Analysis",
     }
     badge = badge_map.get(intent, "")
 

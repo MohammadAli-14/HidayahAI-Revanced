@@ -1,0 +1,16 @@
+# Hidayah AI — Fine-Tuning Dependencies
+# Install these ONLY on Kaggle or training machine, NOT in production.
+# For Kaggle: pip install -r requirements_training.txt
+
+unsloth
+torch>=2.1.0
+transformers>=4.40.0
+datasets>=2.18.0
+trl>=0.8.0
+peft>=0.10.0
+bitsandbytes>=0.43.0
+accelerate>=0.28.0
+xformers
+sentencepiece
+protobuf
+huggingface_hub>=0.22.0

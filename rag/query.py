@@ -15,7 +15,11 @@ from utils.config import (
     LOCAL_LLM_MODEL,
 )
 from rag.vector_store import search_index
-from utils.islamic_guardrails import check_fatwa_sensitivity, verify_grounded_citations
+from utils.islamic_guardrails import (
+    check_fatwa_sensitivity,
+    classify_fatwa_sensitivity,
+    verify_grounded_citations,
+)
 from utils.logger import get_logger
 
 log = get_logger("rag_query")
@@ -73,9 +77,9 @@ def query_pdf(
     4. Post-generation citation audit
     """
     # 1. Pre-query Fatwa Gate
-    fatwa_guard = check_fatwa_sensitivity(question)
-    if fatwa_guard:
-        return fatwa_guard
+    sensitivity = classify_fatwa_sensitivity(question, in_pdf_context=True)
+    if sensitivity["is_personal_verdict"]:
+        return sensitivity["advisory_notice"]
 
     # 2. Retrieve relevant chunks
     relevant_chunks = search_index(
@@ -155,4 +159,6 @@ Provide a concise, well-structured answer with specific page citations from the 
 
     # 5. Post-generation Grounding & Citation Audit
     verified_answer = verify_grounded_citations(raw_answer, context_str)
+    if sensitivity["is_sensitive"] and sensitivity.get("advisory_notice"):
+        verified_answer = sensitivity["advisory_notice"] + "\n\n" + verified_answer
     return verified_answer

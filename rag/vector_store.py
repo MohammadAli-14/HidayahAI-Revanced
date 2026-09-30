@@ -30,34 +30,53 @@ def embed_texts(texts: list[str], task_type: str = "retrieval_document") -> np.n
 
     try:
         embeddings = []
-        batch_size = 20  # Reduced batch size for rate-limit protection
+        batch_size = 25  # Batch size for high-throughput single API calls
 
         for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
-            for text in batch:
-                if not text.strip():
-                    continue
+            batch = [t for t in texts[i:i + batch_size] if t and t.strip()]
+            if not batch:
+                continue
 
-                # Retry with backoff for 429
-                retries = 3
-                while retries > 0:
-                    try:
-                        result = client.models.embed_content(
-                            model=MODEL_EMBEDDING,
-                            contents=text,
-                        )
-                        if result.embeddings:
-                            embeddings.append(result.embeddings[0].values)
-                        break
-                    except genai.errors.APIError as e:
-                        if e.code == 429:
-                            retries -= 1
-                            if retries == 0:
-                                log.warning("Hit 429 rate limit on embedding.")
-                                return "⚠️ 429"
-                            time.sleep(1.5)
-                        else:
-                            raise e
+            # Retry with exponential backoff for 429
+            retries = 4
+            delay = 1.0
+            batch_success = False
+
+            while retries > 0:
+                try:
+                    result = client.models.embed_content(
+                        model=MODEL_EMBEDDING,
+                        contents=batch,
+                    )
+                    if result.embeddings:
+                        for emb in result.embeddings:
+                            embeddings.append(emb.values)
+                    batch_success = True
+                    break
+                except genai.errors.APIError as e:
+                    if e.code == 429:
+                        retries -= 1
+                        log.warning(f"Hit 429 rate limit on embedding. Retrying in {delay}s...")
+                        time.sleep(delay)
+                        delay *= 2
+                    else:
+                        raise e
+                except Exception as batch_err:
+                    log.warning(f"Batch embed failed, falling back to item-level: {batch_err}")
+                    # Fallback to individual items if a single bad string in batch
+                    for text in batch:
+                        try:
+                            res = client.models.embed_content(model=MODEL_EMBEDDING, contents=text)
+                            if res.embeddings:
+                                embeddings.append(res.embeddings[0].values)
+                        except Exception as item_err:
+                            log.error(f"Single item embed failed: {item_err}")
+                    batch_success = True
+                    break
+
+            if not batch_success and retries == 0:
+                log.warning("Embedding quota exhausted after retries.")
+                return "⚠️ 429"
 
         if not embeddings:
             return None

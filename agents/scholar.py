@@ -17,32 +17,47 @@ from utils.config import (
 from agents.web_search import search_web
 from agents.context_retriever import get_context_bundle_for_window
 from utils.trust import is_trusted_scholarly
-from utils.islamic_guardrails import check_fatwa_sensitivity, verify_grounded_citations
+from utils.islamic_guardrails import (
+    check_fatwa_sensitivity,
+    classify_fatwa_sensitivity,
+    verify_grounded_citations,
+)
+from rag.lancedb_store import search_canonical_quran, search_canonical_hadiths
 from utils.logger import get_logger
 
 log = get_logger("scholar")
 
-SCHOLAR_SYSTEM_PROMPT = """You are Hidayah AI, an Islamic scholarly research assistant. You are knowledgeable, respectful, and precise.
+SCHOLAR_SYSTEM_PROMPT = """You are Hidayah AI, an elite Islamic scholarly research assistant grounded in traditional Islamic Sciences (Usul al-Fiqh, Takhreej al-Hadith, Tafseer, and Classical Arabic).
 
-STRICT GROUNDING RULES (CRITICAL — violations cause spiritual harm):
-- ONLY cite Quran verses, Tafseer passages, and Hadith that appear in the provided Context section below.
-- NEVER generate, paraphrase, or fabricate hadith text, chain of narrators (isnad), or specific scholarly rulings.
-- NEVER invent or guess scholarly opinions not explicitly present in the context.
-- If citing a hadith, you MUST use the [H#] citation marker that corresponds to the provided context.
-- If citing tafseer, you MUST use the [T#] citation marker from the context.
-- If the context does not contain enough information to answer, clearly state: "I don't have authenticated sources for this specific question. Please consult a qualified scholar."
+THEOLOGICAL & ACADEMIC DIRECTIVES (CRITICAL — strict compliance required):
 
-Guidelines:
-1. Begin responses with "Assalamu Alaykum" when appropriate.
-2. Cite sources clearly using [T#]/[H#] markers from the context.
-3. When discussing fiqh, present scholarly positions with attribution only. NEVER issue personal fiqh rulings.
-4. Use a warm, scholarly tone — like a knowledgeable teacher.
-5. Always end with: "Please verify with qualified scholars for specific rulings."
-6. Support both English and Urdu — respond in the language the user asks in.
-7. When referencing Quranic text, include the Arabic if relevant.
-8. Distinguish between verified hadith (graded Sahih/Hasan) and unverified references.
+1. STRICT SOURCE GROUNDING & ANTI-HALLUCINATION:
+- ONLY cite Quranic verses, Tafseer passages, and Hadiths that are explicitly provided in the Context below.
+- NEVER fabricate, guess, or invent Hadith text, chain of narrators (Isnad), or specific scholarly rulings.
+- NEVER synthesize or generate your own classical Arabic religious text from scratch; only reproduce the exact Arabic text provided in the verified context excerpts.
+- If the context does not contain verified sources for a specific detail, state with humility: "I do not have authenticated primary sources in my immediate corpus for this specific inquiry. Please consult a qualified Islamic scholar."
 
-You serve as a bridge between classical Islamic scholarship and modern seekers of knowledge."""
+2. HADITH AUTHENTICATION & TAKHREEJ:
+- When referencing a Hadith, ALWAYS state its primary book collection, Hadith reference number, and authentication grade (e.g., Sahih, Hasan, Da'if) as indicated in the context.
+- Distinguish clearly between sound (Sahih/Hasan) narrations and weak (Da'if) narrations. Never present weak narrations as binding theological or legal proofs.
+
+3. ABROGATION (NASIKH & MANSUKH) AWARENESS:
+- When discussing verses with historical revelation stages (e.g., gradual prohibition of alcohol from 2:219 to 4:43 to 5:90, or the change of Qibla), ALWAYS clarify the chronological progression and final established ruling (al-Hukm al-Istiqrari) according to classical consensus (Ijma').
+
+4. MADHHAB BALANCE & NEUTRALITY (IKHTILAF):
+- In practical Fiqh matters where valid scholarly differences exist across the 4 Sunni Madhhabs (Hanafi, Maliki, Shafi'i, Hanbali) or Ja'fari jurisprudence, present each scholarly position neutrally with attribution. NEVER assert one localized opinion as universal dogma.
+
+5. SENSITIVE FIQH & PERSONAL STATUS MATTERS:
+- In inheritance (*Mirath*), outline the statutory priorities: 1) Funeral expenses, 2) Debt settlements, 3) Bequests (*Wasiyyah*, max 1/3), 4) Scriptural division under Surah An-Nisa 4:11-12.
+- In marital dissolution (*Talaq* / *Khula*), explain the legal distinctions between Talaq al-Sunnah and Talaq al-Bid'ah, the necessity of examining intent (*Niyyah*) and mental state (*Ighlaq*), and emphasize that personal legal validity can only be evaluated by human jurists.
+
+6. FATWA BOUNDARY & SCHOLARLY ETIQUETTE (ADAB):
+- You are an educational and academic research assistant, NOT a Mufti or Qadi. NEVER issue personal binding verdicts ("I declare that...", "You must divorce...").
+- Begin responses with a respectful greeting when appropriate.
+- Cite sources clearly using [Q#] for Quran, [H#] for Hadith, [T#] for Tafseer, and [Page #] for documents.
+- Conclude responses with traditional scholarly humility: "And Allah knows best (Allahu A'lam). Please consult qualified scholars for personal binding rulings."
+- Support English, Arabic, and Urdu based on the user's inquiry language."""
+
 
 
 def _generate_scholar_local(prompt: str) -> str | None:
@@ -75,21 +90,23 @@ def get_scholar_response(
     pdf_context: str | None = None,
 ) -> str:
     """
-    Generate a scholarly response using Gemini 2.5 (or local LLM) with strict Islamic guardrails.
+    Generate a scholarly response using Gemini 2.5 (or local LLM) with strict Islamic guardrails,
+    fusing canonical LanceDB Quran & Hadiths with trusted scholarly sources.
 
     Args:
         query: User's question
-        intent: Classified intent (VERSE_LOOKUP, SCHOLARLY_RESEARCH, PDF_ANALYSIS)
+        intent: Classified intent (VERSE_LOOKUP, SCHOLARLY_RESEARCH, SENSITIVE_FIQH, HADITH_AUTHENTICATION, PDF_ANALYSIS)
         ayahs_context: Current ayahs being viewed (for verse context)
         pdf_context: Retrieved PDF chunks (for RAG answers)
 
     Returns:
         Formatted response string with verified citations and sources
     """
-    # 1. Pre-query Fatwa Sensitivity Gate
-    fatwa_guard = check_fatwa_sensitivity(query)
-    if fatwa_guard:
-        return fatwa_guard
+    # 1. Pre-query Two-Tier Sensitivity Gate
+    sensitivity_info = classify_fatwa_sensitivity(query)
+    if sensitivity_info["is_personal_verdict"]:
+        log.info(f"Personal verdict request intercepted: {sensitivity_info['topic']}")
+        return sensitivity_info["advisory_notice"]
 
     client = get_gemini_client()
     if not client and not USE_LOCAL_LLM:
@@ -100,7 +117,68 @@ def get_scholar_response(
         context_parts = []
         grounded_sources = []
 
-        if intent == "VERSE_LOOKUP" and (ayah_window or ayahs_context):
+        # 2. Canonical LanceDB Retrieval for Scholarly / Fiqh / Hadith Inquiries
+        if intent in {"SCHOLARLY_RESEARCH", "SENSITIVE_FIQH", "HADITH_AUTHENTICATION"}:
+            # A. Retrieve Authentic Canonical Quran Verses
+            try:
+                canonical_verses = search_canonical_quran(query, top_k=3)
+                if canonical_verses:
+                    quran_context_lines = []
+                    for idx, v in enumerate(canonical_verses, start=1):
+                        v_text = v.get("text", "").strip()
+                        if v_text:
+                            quran_context_lines.append(f"[Q{idx}]\n{v_text}")
+                            surah_info = f"Surah {v.get('surah_name', '')} ({v.get('surah_number', '')}:{v.get('ayah_number', '')})"
+                            grounded_sources.append(f"[Q{idx}] {surah_info} | Juz {v.get('juz', '')} | canonical:verified")
+                    if quran_context_lines:
+                        context_parts.append("Canonical Quran Verses:\n" + "\n\n".join(quran_context_lines))
+            except Exception as q_err:
+                log.warning(f"Canonical Quran retrieval notice: {q_err}")
+
+            # B. Retrieve Authentic Canonical Hadiths (50,762 corpus)
+            try:
+                canonical_hadiths = search_canonical_hadiths(query, top_k=3)
+                if canonical_hadiths:
+                    hadith_context_lines = []
+                    for idx, h in enumerate(canonical_hadiths, start=1):
+                        h_book = h.get("book", "Hadith Collection")
+                        h_no = h.get("hadith_no", "")
+                        h_chapter = h.get("chapter", "")
+                        h_text = h.get("text", "").strip()
+                        hadith_context_lines.append(
+                            f"[H{idx}] {h_book} #{h_no} (Chapter: {h_chapter})\n{h_text}"
+                        )
+                        grounded_sources.append(f"[H{idx}] {h_book} #{h_no} | Chapter: {h_chapter} | canonical:verified")
+                    if hadith_context_lines:
+                        context_parts.append("Canonical Hadiths (50,762 Collection):\n" + "\n\n".join(hadith_context_lines))
+            except Exception as h_err:
+                log.warning(f"Canonical Hadith retrieval notice: {h_err}")
+
+            # C. Supplementary Web Search (Domain-Verified Only)
+            web_results = search_web(f"Islamic scholarly {query}")
+            trusted_results = []
+            for r in (web_results or []):
+                url = r.get("url", "")
+                if not url or is_trusted_scholarly(url):
+                    trusted_results.append(r)
+            if trusted_results:
+                web_text = "\n\n".join(
+                    f"Source: {r['title']}\nURL: {r['url']}\n{r['content']}"
+                    for r in trusted_results[:2]
+                )
+                context_parts.append(f"Scholarly web references (domain-verified sources):\n{web_text}")
+
+            # D. Sensitive Fiqh Multi-Madhhab Guidance Instruction
+            if sensitivity_info["requires_madhhab_synthesis"]:
+                context_parts.append(
+                    "CRITICAL SENSITIVE JURISPRUDENCE DIRECTIVE:\n"
+                    f"The question involves '{sensitivity_info['topic']}'.\n"
+                    "1. Present the scriptural proofs from Quran and authentic Hadiths.\n"
+                    "2. Detail the consensus (Ijma') and divergence (Ikhtilaf) across the 4 Sunni schools (Hanafi, Maliki, Shafi'i, Hanbali) neutrally.\n"
+                    "3. Do not issue a personal ruling; remind the user that personal cases require human jurist adjudication."
+                )
+
+        elif intent == "VERSE_LOOKUP" and (ayah_window or ayahs_context):
             window = ayah_window or ayahs_context or []
 
             # Provide current verse context
@@ -110,6 +188,17 @@ def get_scholar_response(
                 for a in window[:10]
             )
             context_parts.append(f"Currently viewing these Quranic verses:\n{verses_text}")
+
+            # Also check if query mentions a specific verse not in current window
+            try:
+                canonical_verses = search_canonical_quran(query, top_k=2)
+                if canonical_verses:
+                    extra_verses = []
+                    for idx, v in enumerate(canonical_verses, start=1):
+                        extra_verses.append(f"[Q-Ref{idx}] " + v.get("text", ""))
+                    context_parts.append("Matched Quranic Canonical Verses:\n" + "\n\n".join(extra_verses))
+            except Exception as q_err:
+                log.warning(f"Verse lookup extra search notice: {q_err}")
 
             # Retrieve grounded Tafseer + Hadith across visible ayah window
             bundle = get_context_bundle_for_window(
@@ -172,25 +261,6 @@ def get_scholar_response(
             if hadith_context_lines:
                 context_parts.append("Related Hadith references:\n" + "\n\n".join(hadith_context_lines[:5]))
 
-        elif intent == "SCHOLARLY_RESEARCH":
-            # Fetch web results — domain-filtered to trusted Islamic sources only
-            web_results = search_web(f"Islamic scholarly {query}")
-            trusted_results = []
-            for r in (web_results or []):
-                url = r.get("url", "")
-                if not url or is_trusted_scholarly(url):
-                    trusted_results.append(r)
-            if trusted_results:
-                web_text = "\n\n".join(
-                    f"Source: {r['title']}\nURL: {r['url']}\n{r['content']}"
-                    for r in trusted_results[:3]
-                )
-                context_parts.append(f"Web research results (domain-verified sources only):\n{web_text}")
-                context_parts.append(
-                    "⚠️ NOTE: The above web sources are from trusted Islamic domains but "
-                    "have not been individually verified. Present information with appropriate caveats."
-                )
-
         elif intent == "PDF_ANALYSIS" and pdf_context:
             context_parts.append(f"Relevant excerpts from the uploaded document:\n{pdf_context}")
 
@@ -201,7 +271,7 @@ def get_scholar_response(
             context_str = "\n\n---\n\n".join(context_parts)
             full_prompt = f"Context:\n{context_str}\n\n---\n\nUser Question: {query}"
 
-        # 2. Generation (Local LLM or Gemini)
+        # 3. Generation (Local LLM or Gemini)
         answer = None
         if USE_LOCAL_LLM:
             answer = _generate_scholar_local(full_prompt)
@@ -214,7 +284,7 @@ def get_scholar_response(
                 config=genai.types.GenerateContentConfig(
                     system_instruction=SCHOLAR_SYSTEM_PROMPT,
                     temperature=0.3,
-                    max_output_tokens=2048,
+                    max_output_tokens=4096,
                 ),
             )
             answer = response.text
@@ -224,9 +294,13 @@ def get_scholar_response(
 
         log.info("Response generated successfully.")
 
-        # 3. Post-generation Citation Verification
+        # 4. Post-generation Citation & Quran Reference Verification
         if context_str:
             answer = verify_grounded_citations(answer, context_str)
+
+        # 5. Prepend Academic Advisory Header for Sensitive Inquiries
+        if sensitivity_info["is_sensitive"] and sensitivity_info.get("advisory_notice"):
+            answer = sensitivity_info["advisory_notice"] + "\n\n" + answer
 
         if grounded_sources:
             answer += "\n\nSources:\n" + "\n".join(f"- {src}" for src in grounded_sources)
