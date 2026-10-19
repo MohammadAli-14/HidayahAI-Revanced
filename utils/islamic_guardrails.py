@@ -282,11 +282,15 @@ def verify_grounded_citations(llm_response: str, context_text: str) -> str:
                 try:
                     if surah_num == 18 and ayah_num == 49:
                         lower_resp = llm_response.lower()
-                        if any(kw in lower_resp for kw in ["decree", "predestination", "qadar", "created all things"]):
-                            audit_notes.append(
+                        # Only flag if 18:49 is falsely attributed to Qadar WITHOUT 54:49 being present in the response
+                        has_54_49 = "54:49" in llm_response or "al-qamar" in lower_resp
+                        if not has_54_49 and any(kw in lower_resp for kw in ["decree", "predestination", "qadar", "created all things"]):
+                            note = (
                                 "The quote regarding divine decree (*Qadar*) is authentically from **Surah Al-Qamar (54:49)** (*'Indeed, all things We created with predestination'*). "
                                 "Surah Al-Kahf (18:49) specifically addresses the Book of Deeds on Judgment Day."
                             )
+                            if note not in audit_notes:
+                                audit_notes.append(note)
                 except Exception as audit_err:
                     log.warning(f"Ayah text verification notice: {audit_err}")
         elif surah_num > 114:
@@ -294,13 +298,16 @@ def verify_grounded_citations(llm_response: str, context_text: str) -> str:
 
     if invalid_refs:
         log.warning(f"Detected invalid Quranic verse citations: {invalid_refs}")
-        audit_notes.append(
+        inv_note = (
             f"Detected uncanonical Quranic verse reference: **{', '.join(invalid_refs)}**. "
             "Please cross-verify with the canonical Uthmani Mushaf."
         )
+        if inv_note not in audit_notes:
+            audit_notes.append(inv_note)
 
     if audit_notes:
-        note_str = "\n\n> 🔍 **Scholarly Citation & Verification Note (Citation Audit Note):** " + " ".join(audit_notes)
+        unique_notes = list(dict.fromkeys(audit_notes))
+        note_str = "\n\n> 🔍 **Scholarly Citation & Verification Note (Citation Audit Note):** " + " ".join(unique_notes)
         return llm_response + note_str
 
     return llm_response

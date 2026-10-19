@@ -36,6 +36,11 @@ from utils.hadith_api import (
     check_unauthentic_hadith,
     format_hadith_card,
 )
+from utils.fiqh_kb import (
+    lookup_fiqh_topic,
+    is_procedural_prayer_query,
+    format_fiqh_grounding_block,
+)
 from utils.logger import get_logger
 
 log = get_logger("scholar")
@@ -264,7 +269,16 @@ def get_scholar_response(
 
         # 2. Canonical LanceDB Retrieval for Scholarly / Fiqh / Hadith Inquiries
         if intent in {"SCHOLARLY_RESEARCH", "SENSITIVE_FIQH", "HADITH_AUTHENTICATION"}:
-            # A0. Retrieve Classical Surah Thematic Structure (if a specific Surah is queried and no explicit verses)
+            # A0. Retrieve Verified 4-Madhhab Classical Fiqh Grounding (if inquiry touches procedural/comparative fiqh)
+            fiqh_topic = lookup_fiqh_topic(query)
+            if fiqh_topic:
+                fiqh_block = format_fiqh_grounding_block(fiqh_topic)
+                context_parts.append(fiqh_block)
+                grounded_sources.append(
+                    f"[Fiqh-1] Classical Jurisprudence Synthesis: {fiqh_topic['title']} (4 Sunni Madhhabs) | canonical:verified"
+                )
+
+            # A1. Retrieve Classical Surah Thematic Structure (if a specific Surah is queried and no explicit verses)
             if not exact_verses_loaded:
                 try:
                     detected_surah = detect_surah_in_query(query)
@@ -276,8 +290,9 @@ def get_scholar_response(
                 except Exception as th_err:
                     log.warning(f"Surah thematic context notice: {th_err}")
 
-            # A. Retrieve Authentic Canonical Quran Verses (only if no explicit verses and not an explicit hadith ref)
-            if not exact_verses_loaded and not hadith_ref:
+            # A2. Retrieve Authentic Canonical Quran Verses (suppressed for procedural prayer motions where Quran is silent)
+            is_procedural = is_procedural_prayer_query(query)
+            if not exact_verses_loaded and not hadith_ref and not is_procedural:
                 try:
                     verse_k = 2 if USE_LOCAL_LLM else 3
                     canonical_verses = search_canonical_quran(query, top_k=verse_k)
@@ -469,7 +484,8 @@ def get_scholar_response(
             "1. CITE SCRIPTURE ACCURATELY: When quoting verses or Hadiths, cite them using the exact tags provided in context ([Q1], [H1], etc.).",
             "2. ATTRIBUTION INTEGRITY: Never claim a specific quote or saying belongs to Sahih al-Bukhari, Sahih Muslim, or any collection unless that EXACT text appears inside the context excerpts above. If a user asks about a saying not in the context, clarify that it is unverified or not present.",
             "3. RESPECT IKHTILAF: In matters of jurisprudence (Fiqh) where scholars differ across the 4 Sunni schools (Hanafi, Maliki, Shafi'i, Hanbali), explain each view respectfully without sectarian bias.",
-            "4. HUMILITY: Conclude your answer with traditional adab: And Allah knows best (Allahu A'lam).",
+            "4. FIQH GROUNDING: When verified jurisprudence context is provided under Canonical Jurisprudence Reference, adhere strictly to the stated positions and primary evidences of each Madhhab. Do not invent rulings, obligations, or non-existent classifications.",
+            "5. HUMILITY: Conclude your answer with traditional adab: And Allah knows best (Allahu A'lam).",
         ]
         system_rules_str = "\n".join(system_rules)
         full_prompt = f"Context:\n{context_str}\n\n---\n\n{system_rules_str}\n\nQuestion: {query}\n\nScholarly Response:"
