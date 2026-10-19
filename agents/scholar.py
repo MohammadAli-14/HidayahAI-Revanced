@@ -168,7 +168,7 @@ def get_scholar_response(
     # 1b. Unauthentic & Fabricated Hadith Gate (Mustalah al-Hadith)
     unauth_hit = check_unauthentic_hadith(query)
     if unauth_hit:
-        log.info(f"Unauthentic narration detected: {unauth_hit.get('status', 'Unauthentic')}")
+        log.info("Unauthentic narration detected: Mawdu / Daif Jiddan (Intercepted)")
         resp_lines = [
             "### ⚠️ Authentication Notice (*Takhrij & Naqd al-Hadith*)",
             f"**Narration Inquired:** {unauth_hit['statement']}",
@@ -361,6 +361,16 @@ def get_scholar_response(
                 "3. Conclude with: And Allah knows best (Allahu A'lam)."
             )
 
+            # F. Comparative Exegesis Directive
+            if any(kw in query.lower() for kw in ["compare", "comparison", "contrast", "difference between", "relation between"]):
+                context_parts.append(
+                    "CRITICAL COMPARATIVE THEMATIC DIRECTIVE:\n"
+                    "The user is asking to compare or contrast the cited verses/concepts.\n"
+                    "1. Explain the central theme and message of each cited verse individually based on the provided text and Tafseer.\n"
+                    "2. Explain how their theological themes connect, harmonize, or contrast (e.g. human accountability in the Book of Deeds vs Divine Decree/Qadar of all creation).\n"
+                    "3. DO NOT refuse to compare verses simply because they are from different chapters. Provide a thoughtful scholarly synthesis."
+                )
+
         elif intent == "VERSE_LOOKUP" and not exact_verses_loaded and (ayah_window or ayahs_context):
             window = ayah_window or ayahs_context or []
 
@@ -451,8 +461,8 @@ def get_scholar_response(
         context_str = ""
         if context_parts:
             context_str = "\n\n---\n\n".join(context_parts)
-            if USE_LOCAL_LLM and len(context_str) > 3500:
-                context_str = context_str[:3500] + "\n\n[Context streamlined for local inference]"
+            if USE_LOCAL_LLM and len(context_str) > 2200:
+                context_str = context_str[:2200] + "\n\n[Context streamlined for local inference]"
 
         system_rules = [
             "CRITICAL SCHOLARLY INSTRUCTIONS:",
