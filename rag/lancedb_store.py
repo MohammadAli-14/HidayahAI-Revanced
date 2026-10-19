@@ -360,19 +360,25 @@ def search_canonical_quran(query_text: str, top_k: int = 5) -> list[dict]:
 
     exact_results = []
     try:
-        # Check for numerical reference (e.g. 4:11, 2:255)
+        # Check for multiple numerical references (e.g. 18:49 and 54:49)
         import re
         q_clean = query_text.lower().replace("-", " ").replace("'", "")
         
-        surah_num = None
-        ayah_num = None
-
-        m_num = re.search(r"(\b\d{1,3}):(\d{1,3})\b", query_text)
-        if m_num:
-            surah_num = int(m_num.group(1))
-            ayah_num = int(m_num.group(2))
+        matches = re.findall(r"(\b\d{1,3}):(\d{1,3})\b", query_text)
+        table = store._db.open_table(store.table_name)
+        if matches:
+            for m in matches:
+                s_num, a_num = int(m[0]), int(m[1])
+                if 1 <= s_num <= 114:
+                    df_exact = table.search().where(f"surah_number = {s_num} AND ayah_number = {a_num}").to_pandas()
+                    if not df_exact.empty:
+                        for rec in df_exact.to_dict(orient="records"):
+                            exact_results.append(rec)
+                        log.info(f"Directly resolved exact Quran verse: Surah {s_num}, Ayah {a_num}")
         else:
             # Check for name + verse pattern (e.g. "surah an nisa verse 11")
+            surah_num = None
+            ayah_num = None
             for s_name, s_id in SURAH_NAME_MAP.items():
                 if s_name in q_clean:
                     m_ayah = re.search(r"(?:verse|ayah|number)\s*(\d{1,3})", q_clean)
@@ -380,21 +386,18 @@ def search_canonical_quran(query_text: str, top_k: int = 5) -> list[dict]:
                         surah_num = s_id
                         ayah_num = int(m_ayah.group(1))
                         break
-
-        if surah_num and ayah_num and 1 <= surah_num <= 114:
-            table = store._db.open_table(store.table_name)
-            df_exact = table.search().where(f"surah_number = {surah_num} AND ayah_number = {ayah_num}").to_pandas()
-            if not df_exact.empty:
-                exact_results = df_exact.to_dict(orient="records")
-                log.info(f"Directly resolved exact Quran verse: Surah {surah_num}, Ayah {ayah_num}")
+            if surah_num and ayah_num and 1 <= surah_num <= 114:
+                df_exact = table.search().where(f"surah_number = {surah_num} AND ayah_number = {ayah_num}").to_pandas()
+                if not df_exact.empty:
+                    exact_results = df_exact.to_dict(orient="records")
+                    log.info(f"Directly resolved exact Quran verse: Surah {surah_num}, Ayah {ayah_num}")
     except Exception as e:
         log.warning(f"Exact verse parser notice: {e}")
 
-    # If exact verse found, prioritize it at the top
+    # If exact verses found, prioritize them at the top
     if exact_results:
-        hybrid_res = store.hybrid_search(query_text=query_text, top_k=max(1, top_k - 1))
-        # Deduplicate
-        seen_ids = {exact_results[0].get("id")}
+        hybrid_res = store.hybrid_search(query_text=query_text, top_k=max(1, top_k - len(exact_results)))
+        seen_ids = {r.get("id") for r in exact_results}
         combined = list(exact_results)
         for r in hybrid_res:
             if r.get("id") not in seen_ids and len(combined) < top_k:
@@ -403,5 +406,23 @@ def search_canonical_quran(query_text: str, top_k: int = 5) -> list[dict]:
         return combined
 
     return store.hybrid_search(query_text=query_text, top_k=top_k)
+
+
+def get_canonical_ayah(surah_num: int, ayah_num: int) -> dict | None:
+    """
+    Fetch exact canonical Quran verse from LanceDB canonical_quran in <1ms.
+    Used for deterministic post-generation citation validation and cross-wiring prevention.
+    """
+    store = IslamicLanceStore(table_name="canonical_quran")
+    if not store.is_available():
+        return None
+    try:
+        table = store._db.open_table(store.table_name)
+        df = table.search().where(f"surah_number = {surah_num} AND ayah_number = {ayah_num}").to_pandas()
+        if not df.empty:
+            return df.to_dict(orient="records")[0]
+    except Exception as e:
+        log.warning(f"Error fetching canonical ayah {surah_num}:{ayah_num}: {e}")
+    return None
 
 

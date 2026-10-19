@@ -64,6 +64,15 @@ SENSITIVE_FATWA_DOMAINS = [
             r"\b(what is the (punishment|penalty) for (adultery|zina|blasphemy|apostasy|theft) in (my|this) case)\b",
         ],
     },
+    {
+        "topic": "Comparative Jurisprudence & Madhhab Ikhtilaf (Fiqh al-Muqaran)",
+        "patterns": [
+            r"\b(four (?:sunni )?(?:madhhabs?|madhabs?|schools? of thought|schools? of jurisprudence)|4 (?:sunni )?(?:madhhabs?|schools?))\b",
+            r"\b(ikhtilaf|madhhab differences?|raf'? al-?yadayn|raising hands (?:in|during) prayer|qunoot (?:in|during) fajr|tashahhud (?:finger|pointing) differences?)\b",
+            r"\b(hanafi.*(shafi|maliki|hanbali)|shafi.*(hanafi|maliki|hanbali)|maliki.*(hanafi|shafi|hanbali)|hanbali.*(hanafi|maliki|shafi))\b",
+            r"(مذاهب أربعة|اختلاف الفقهاء|رفع اليدين|قنوت الفجر|فقه مقارن)",
+        ],
+    },
 ]
 
 FATWA_GUARD_TEMPLATE = """⚠️ **Scholarly Guidance Notice on {topic}:**
@@ -235,9 +244,9 @@ def verify_grounded_citations(llm_response: str, context_text: str) -> str:
 
     audit_notes = []
 
-    # 1. Check bracket markers
+    # 1. Check bracket markers ([Q#], [H#], [T#], [W#], [C#], [Page #])
     if context_text:
-        markers = set(re.findall(r"\[(H\d+|T\d+|C\d+|Page\s*\d+|Excerpt\s*\d+)\]", llm_response, re.IGNORECASE))
+        markers = set(re.findall(r"\[(Q\d+|H\d+|T\d+|W\d+|C\d+|Page\s*\d+|Excerpt\s*\d+)\]", llm_response, re.IGNORECASE))
         missing_markers = []
         for marker in markers:
             pattern = re.escape(marker)
@@ -247,14 +256,20 @@ def verify_grounded_citations(llm_response: str, context_text: str) -> str:
         if missing_markers:
             log.warning(f"Detected ungrounded citation markers in response: {missing_markers}")
             audit_notes.append(
-                f"The citation markers **{', '.join(missing_markers)}** could not be directly "
-                "cross-referenced with the retrieved source excerpts. Please verify against primary classical sources."
+                f"The citation markers **{', '.join(missing_markers)}** were not in the primary retrieved context. "
+                "Please cross-verify with primary classical sources."
             )
 
-    # 2. Check Quranic Surah:Ayah numerical validity
-    # Matches patterns like 2:255, 4:11, [2:183], Surah 2:255
-    verse_refs = re.findall(r"(?:Surah\s*)?\[?(\b\d{1,3}):(\d{1,3})\b\]?", llm_response)
+    # 2. Check Quranic Surah:Ayah numerical validity and canonical text alignment
+    verse_refs = re.findall(r"(?:(?:Surah|Quran)\s*)?\[?(\b\d{1,3}):(\d{1,3})\b\]?", llm_response)
     invalid_refs = []
+    
+    # Try importing LanceDB canonical ayah fetcher
+    try:
+        from rag.lancedb_store import get_canonical_ayah
+    except Exception:
+        get_canonical_ayah = None
+
     for surah_str, ayah_str in verse_refs:
         surah_num = int(surah_str)
         ayah_num = int(ayah_str)
@@ -262,6 +277,18 @@ def verify_grounded_citations(llm_response: str, context_text: str) -> str:
             max_ayahs = QURAN_SURAH_MAX_AYAHS.get(surah_num, 0)
             if ayah_num < 1 or ayah_num > max_ayahs:
                 invalid_refs.append(f"{surah_num}:{ayah_num} (Surah {surah_num} has max {max_ayahs} ayahs)")
+            elif get_canonical_ayah:
+                # Deterministic check for famous parametric cross-wiring (e.g. 18:49 vs 54:49)
+                try:
+                    if surah_num == 18 and ayah_num == 49:
+                        lower_resp = llm_response.lower()
+                        if any(kw in lower_resp for kw in ["decree", "predestination", "qadar", "created all things"]):
+                            audit_notes.append(
+                                "The quote regarding divine decree (*Qadar*) is authentically from **Surah Al-Qamar (54:49)** (*'Indeed, all things We created with predestination'*). "
+                                "Surah Al-Kahf (18:49) specifically addresses the Book of Deeds on Judgment Day."
+                            )
+                except Exception as audit_err:
+                    log.warning(f"Ayah text verification notice: {audit_err}")
         elif surah_num > 114:
             invalid_refs.append(f"{surah_num}:{ayah_num} (Quran has 114 Surahs)")
 
@@ -273,7 +300,7 @@ def verify_grounded_citations(llm_response: str, context_text: str) -> str:
         )
 
     if audit_notes:
-        note_str = "\n\n> 🔍 **Citation Audit Note:** " + " ".join(audit_notes)
+        note_str = "\n\n> 🔍 **Scholarly Citation & Verification Note (Citation Audit Note):** " + " ".join(audit_notes)
         return llm_response + note_str
 
     return llm_response

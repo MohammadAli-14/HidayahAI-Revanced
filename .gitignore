@@ -10,3 +10,12 @@ build/
 uploaded_pdfs/
 data/
 
+training/models/
+training/data/
+*.gguf
+*.bin
+
+# Legacy / Nested workspaces
+Hidayah AI - Copy/
+.temp_ag_kit/
+

@@ -6,6 +6,9 @@ Islamic theological guardrails, and citation verification.
 
 from google import genai
 import requests
+import json
+import time
+import re
 from utils.config import (
     MODEL_SCHOLAR,
     GEMINI_API_KEY,
@@ -22,7 +25,17 @@ from utils.islamic_guardrails import (
     classify_fatwa_sensitivity,
     verify_grounded_citations,
 )
-from rag.lancedb_store import search_canonical_quran, search_canonical_hadiths
+from rag.lancedb_store import (
+    search_canonical_quran,
+    search_canonical_hadiths,
+    get_canonical_ayah,
+)
+from rag.surah_themes import detect_surah_in_query, get_surah_thematic_summary
+from utils.hadith_api import (
+    resolve_hadith_reference,
+    check_unauthentic_hadith,
+    format_hadith_card,
+)
 from utils.logger import get_logger
 
 log = get_logger("scholar")
@@ -63,22 +76,66 @@ THEOLOGICAL & ACADEMIC DIRECTIVES (CRITICAL — strict compliance required):
 def _generate_scholar_local(prompt: str) -> str | None:
     """Generate scholarly response using local Ollama/vLLM instance."""
     try:
+        log.info(f"[LOCAL LLM] Dispatching prompt to {LOCAL_LLM_MODEL} via Ollama ({LOCAL_LLM_URL})...")
+        t0 = time.time()
+
+        # hidayah-lm:3b has its comprehensive Islamic scholar system prompt compiled inside its Modelfile.
         payload = {
             "model": LOCAL_LLM_MODEL,
             "messages": [
-                {"role": "system", "content": SCHOLAR_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.3,
-            "max_tokens": 2048,
+            "max_tokens": 768,
         }
-        res = requests.post(f"{LOCAL_LLM_URL}/chat/completions", json=payload, timeout=60)
+        res = requests.post(f"{LOCAL_LLM_URL}/chat/completions", json=payload, timeout=120)
         if res.status_code == 200:
             data = res.json()
-            return data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"]["content"]
+            elapsed = time.time() - t0
+            log.info(f"[LOCAL LLM] {LOCAL_LLM_MODEL} generated response in {elapsed:.1f}s!")
+            return content
+        else:
+            log.warning(f"[LOCAL LLM] Ollama returned HTTP {res.status_code}: {res.text}")
     except Exception as e:
-        log.warning(f"Local LLM fallback failed in scholar agent: {e}")
+        log.warning(f"Local LLM generation failed in scholar agent: {e}")
     return None
+
+
+def stream_scholar_local(prompt: str):
+    """
+    Yield real-time streaming token chunks from local Ollama/vLLM instance.
+    Enables Streamlit UI to begin rendering text within 2-3 seconds.
+    """
+    try:
+        log.info(f"[LOCAL LLM STREAM] Initiating streaming prompt to {LOCAL_LLM_MODEL}...")
+
+        payload = {
+            "model": LOCAL_LLM_MODEL,
+            "messages": [
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.3,
+            "max_tokens": 768,
+            "stream": True,
+        }
+        with requests.post(f"{LOCAL_LLM_URL}/chat/completions", json=payload, stream=True, timeout=120) as res:
+            if res.status_code == 200:
+                for line in res.iter_lines():
+                    if line:
+                        line_str = line.decode("utf-8")
+                        if line_str.startswith("data: ") and line_str.strip() != "data: [DONE]":
+                            try:
+                                chunk_json = json.loads(line_str[6:])
+                                delta = chunk_json.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                if delta:
+                                    yield delta
+                            except Exception:
+                                pass
+            else:
+                log.warning(f"[LOCAL LLM STREAM] Ollama returned HTTP {res.status_code}: {res.text}")
+    except Exception as e:
+        log.warning(f"Local LLM streaming error: {e}")
 
 
 def get_scholar_response(
@@ -108,6 +165,49 @@ def get_scholar_response(
         log.info(f"Personal verdict request intercepted: {sensitivity_info['topic']}")
         return sensitivity_info["advisory_notice"]
 
+    # 1b. Unauthentic & Fabricated Hadith Gate (Mustalah al-Hadith)
+    unauth_hit = check_unauthentic_hadith(query)
+    if unauth_hit:
+        log.info(f"Unauthentic narration detected: {unauth_hit.get('status', 'Unauthentic')}")
+        resp_lines = [
+            "### ⚠️ Authentication Notice (*Takhrij & Naqd al-Hadith*)",
+            f"**Narration Inquired:** {unauth_hit['statement']}",
+            f"**Scholarly Classification:** `{unauth_hit['status']}`",
+            "",
+            "**Scholarly Evaluation:**",
+            f"{unauth_hit['theological_verdict']}",
+            "",
+            f"**Graded by Classical Hadith Masters:** {unauth_hit['scholars']}.",
+            "",
+            "**Verified Scriptural Alternative:**",
+            f"> {unauth_hit['authentic_alternative']}",
+            "",
+            "And Allah knows best (*Allahu A'lam*). Always verify religious sayings with classical scholarly collections.",
+            "",
+            "Sources:",
+            f"- [H1] {unauth_hit['canonical_ref']} | Authenticity: Sahih / Verified Canonical Alternative | canonical:verified",
+        ]
+        return "\n\n".join(resp_lines)
+
+    # 1c. Deterministic Canonical Hadith Reference Resolver
+    hadith_ref = resolve_hadith_reference(query)
+    is_direct_lookup = False
+    if hadith_ref:
+        q_clean = query.lower()
+        is_direct_lookup = any(
+            phrase in q_clean for phrase in [
+                "what is", "show", "read", "text", "grading", "grade", "arabic and english",
+                "in arabic", "in english", "bukhari 1", "abu dawud 1035", "hadith 1"
+            ]
+        ) and not any(kw in q_clean for kw in ["derive", "fiqh ruling", "explain the legal ruling", "philosophical"])
+
+        if is_direct_lookup:
+            log.info(f"Direct hadith lookup query matched: {hadith_ref.get('title')}")
+            hadith_card = format_hadith_card(hadith_ref)
+            final_resp = f"{hadith_card}\n\nAnd Allah knows best (*Allahu A'lam*)."
+            final_resp += f"\n\nSources:\n- [H1] {hadith_ref.get('title')} | {hadith_ref.get('authority')} | canonical:{hadith_ref.get('canonical_status', 'verified')} — {hadith_ref.get('canonical_url', '')}"
+            return final_resp
+
     client = get_gemini_client()
     if not client and not USE_LOCAL_LLM:
         return "⚠️ **Gemini API key not configured.** Please add `GEMINI_API_KEY` to your settings (Secrets on Streamlit Cloud or .env locally)."
@@ -117,56 +217,131 @@ def get_scholar_response(
         context_parts = []
         grounded_sources = []
 
+        # Check for explicit Surah:Ayah numerical references in the query (e.g. 18:49 and 54:49)
+        explicit_verses = re.findall(r"\b(\d{1,3}):(\d{1,3})\b", query)
+        exact_verses_loaded = False
+        if explicit_verses:
+            log.info(f"Explicit Quran verse references detected: {explicit_verses}")
+            exact_quran_lines = []
+            explicit_window = []
+            for s_str, a_str in explicit_verses:
+                s_num, a_num = int(s_str), int(a_str)
+                if 1 <= s_num <= 114:
+                    v_data = get_canonical_ayah(s_num, a_num)
+                    if v_data:
+                        v_text = v_data.get('text', '')
+                        exact_quran_lines.append(f"[Q-{s_num}:{a_num}]\n{v_text}")
+                        grounded_sources.append(
+                            f"[Q{len(grounded_sources)+1}] Surah {v_data.get('surah_name', '')} ({s_num}:{a_num}) | Juz {v_data.get('juz', '')} | canonical:verified"
+                        )
+                        explicit_window.append({
+                            "surah_number": s_num,
+                            "number_in_surah": a_num,
+                            "surah_name": v_data.get("surah_name", f"Surah {s_num}"),
+                            "english": v_text,
+                        })
+            if exact_quran_lines:
+                context_parts.append("Explicitly Cited Quranic Verses:\n" + "\n\n".join(exact_quran_lines))
+                exact_verses_loaded = True
+
+            # Retrieve grounded Tafseer specifically for the explicitly cited verses
+            if explicit_window:
+                try:
+                    bundle = get_context_bundle_for_window(explicit_window, tafseer_language=tafseer_language)
+                    tafsir_by_ayah = bundle.get("tafsir_by_ayah", {})
+                    tafsir_counter = 1
+                    tafsir_lines = []
+                    for ayah_ref, tafsir_items in tafsir_by_ayah.items():
+                        for item in tafsir_items[:1]:
+                            snippet = item.get("excerpt", "").strip()[:400]
+                            tafsir_lines.append(f"[T{tafsir_counter}] Tafseer for {ayah_ref} ({item['source_name']}):\n{snippet}")
+                            grounded_sources.append(f"[T{tafsir_counter}] {item['source_name']} | {ayah_ref} | canonical:verified")
+                            tafsir_counter += 1
+                    if tafsir_lines:
+                        context_parts.append("Classical Tafseer Exegesis for Cited Verses:\n" + "\n\n".join(tafsir_lines))
+                except Exception as t_err:
+                    log.warning(f"Error fetching tafseer for explicit verses: {t_err}")
+
         # 2. Canonical LanceDB Retrieval for Scholarly / Fiqh / Hadith Inquiries
         if intent in {"SCHOLARLY_RESEARCH", "SENSITIVE_FIQH", "HADITH_AUTHENTICATION"}:
-            # A. Retrieve Authentic Canonical Quran Verses
-            try:
-                canonical_verses = search_canonical_quran(query, top_k=3)
-                if canonical_verses:
-                    quran_context_lines = []
-                    for idx, v in enumerate(canonical_verses, start=1):
-                        v_text = v.get("text", "").strip()
-                        if v_text:
-                            quran_context_lines.append(f"[Q{idx}]\n{v_text}")
-                            surah_info = f"Surah {v.get('surah_name', '')} ({v.get('surah_number', '')}:{v.get('ayah_number', '')})"
-                            grounded_sources.append(f"[Q{idx}] {surah_info} | Juz {v.get('juz', '')} | canonical:verified")
-                    if quran_context_lines:
-                        context_parts.append("Canonical Quran Verses:\n" + "\n\n".join(quran_context_lines))
-            except Exception as q_err:
-                log.warning(f"Canonical Quran retrieval notice: {q_err}")
+            # A0. Retrieve Classical Surah Thematic Structure (if a specific Surah is queried and no explicit verses)
+            if not exact_verses_loaded:
+                try:
+                    detected_surah = detect_surah_in_query(query)
+                    if detected_surah:
+                        surah_theme_text = get_surah_thematic_summary(detected_surah)
+                        if surah_theme_text:
+                            context_parts.append(f"Classical Surah Thematic Structure:\n{surah_theme_text}")
+                            grounded_sources.append(f"[T1] Classical Surah Exegesis (Chapter {detected_surah}) | canonical:verified")
+                except Exception as th_err:
+                    log.warning(f"Surah thematic context notice: {th_err}")
+
+            # A. Retrieve Authentic Canonical Quran Verses (only if no explicit verses and not an explicit hadith ref)
+            if not exact_verses_loaded and not hadith_ref:
+                try:
+                    verse_k = 2 if USE_LOCAL_LLM else 3
+                    canonical_verses = search_canonical_quran(query, top_k=verse_k)
+                    if canonical_verses:
+                        quran_context_lines = []
+                        for idx, v in enumerate(canonical_verses, start=1):
+                            v_text = v.get("text", "").strip()
+                            if USE_LOCAL_LLM and len(v_text) > 250:
+                                v_text = v_text[:250] + "..."
+                            if v_text:
+                                quran_context_lines.append(f"[Q{idx}]\n{v_text}")
+                                surah_info = f"Surah {v.get('surah_name', '')} ({v.get('surah_number', '')}:{v.get('ayah_number', '')})"
+                                grounded_sources.append(f"[Q{idx}] {surah_info} | Juz {v.get('juz', '')} | canonical:verified")
+                        if quran_context_lines:
+                            context_parts.append("Canonical Quran Verses:\n" + "\n\n".join(quran_context_lines))
+                except Exception as q_err:
+                    log.warning(f"Canonical Quran retrieval notice: {q_err}")
 
             # B. Retrieve Authentic Canonical Hadiths (50,762 corpus)
-            try:
-                canonical_hadiths = search_canonical_hadiths(query, top_k=3)
-                if canonical_hadiths:
-                    hadith_context_lines = []
-                    for idx, h in enumerate(canonical_hadiths, start=1):
-                        h_book = h.get("book", "Hadith Collection")
-                        h_no = h.get("hadith_no", "")
-                        h_chapter = h.get("chapter", "")
-                        h_text = h.get("text", "").strip()
-                        hadith_context_lines.append(
-                            f"[H{idx}] {h_book} #{h_no} (Chapter: {h_chapter})\n{h_text}"
-                        )
-                        grounded_sources.append(f"[H{idx}] {h_book} #{h_no} | Chapter: {h_chapter} | canonical:verified")
-                    if hadith_context_lines:
-                        context_parts.append("Canonical Hadiths (50,762 Collection):\n" + "\n\n".join(hadith_context_lines))
-            except Exception as h_err:
-                log.warning(f"Canonical Hadith retrieval notice: {h_err}")
+            if hadith_ref:
+                h_text = hadith_ref.get("excerpt", "")
+                h_title = hadith_ref.get("title", "Hadith Reference")
+                h_auth = hadith_ref.get("authority", "Authentic Hadith")
+                context_parts.append(f"Canonical Hadith Citation ({h_title}):\n{h_text}")
+                grounded_sources.append(f"[H1] {h_title} | {h_auth} | canonical:{hadith_ref.get('canonical_status', 'verified')} — {hadith_ref.get('canonical_url', '')}")
+            else:
+                try:
+                    hadith_k = 2 if USE_LOCAL_LLM else 3
+                    canonical_hadiths = search_canonical_hadiths(query, top_k=hadith_k)
+                    if canonical_hadiths:
+                        hadith_context_lines = []
+                        for idx, h in enumerate(canonical_hadiths, start=1):
+                            h_book = h.get("book", "Hadith Collection")
+                            h_no = h.get("hadith_no", "")
+                            h_chapter = h.get("chapter", "")
+                            h_text = h.get("text", "").strip()
+                            if USE_LOCAL_LLM and len(h_text) > 250:
+                                h_text = h_text[:250] + "..."
+                            hadith_context_lines.append(
+                                f"[H{idx}] {h_book} #{h_no} (Chapter: {h_chapter})\n{h_text}"
+                            )
+                            grounded_sources.append(f"[H{idx}] {h_book} #{h_no} | Chapter: {h_chapter} | canonical:verified")
+                        if hadith_context_lines:
+                            context_parts.append("Canonical Hadiths (50,762 Collection):\n" + "\n\n".join(hadith_context_lines))
+                except Exception as h_err:
+                    log.warning(f"Canonical Hadith retrieval notice: {h_err}")
 
-            # C. Supplementary Web Search (Domain-Verified Only)
-            web_results = search_web(f"Islamic scholarly {query}")
-            trusted_results = []
-            for r in (web_results or []):
-                url = r.get("url", "")
-                if not url or is_trusted_scholarly(url):
-                    trusted_results.append(r)
-            if trusted_results:
-                web_text = "\n\n".join(
-                    f"Source: {r['title']}\nURL: {r['url']}\n{r['content']}"
-                    for r in trusted_results[:2]
-                )
-                context_parts.append(f"Scholarly web references (domain-verified sources):\n{web_text}")
+            # C. Supplementary Compact Web Search (Domain-Verified Only)
+            try:
+                web_results = search_web(f"Islamic scholarly {query}")
+                trusted_results = []
+                for r in (web_results or []):
+                    url = r.get("url", "")
+                    if not url or is_trusted_scholarly(url):
+                        trusted_results.append(r)
+                if trusted_results:
+                    best_r = trusted_results[0]
+                    if best_r.get("url") and best_r.get("title") != "Search Error":
+                        snippet = best_r.get("content", "").strip()[:350]
+                        if snippet:
+                            context_parts.append(f"Domain-Verified Scholarly Commentary [W1]:\nSource: {best_r.get('title', 'Reference')}\n{snippet}...")
+                            grounded_sources.append(f"[W1] {best_r.get('title', 'Web Reference')} | {best_r.get('url', '')} | domain_verified")
+            except Exception as w_err:
+                log.warning(f"Web search notice: {w_err}")
 
             # D. Sensitive Fiqh Multi-Madhhab Guidance Instruction
             if sensitivity_info["requires_madhhab_synthesis"]:
@@ -178,7 +353,15 @@ def get_scholar_response(
                     "3. Do not issue a personal ruling; remind the user that personal cases require human jurist adjudication."
                 )
 
-        elif intent == "VERSE_LOOKUP" and (ayah_window or ayahs_context):
+            # E. Strict Anti-Hallucination Scripture Directive
+            context_parts.append(
+                "STRICT SCRIPTURAL CITATION RULES:\n"
+                "1. When citing specific chapter:verse numbers (e.g. [18:49]), you MUST ONLY cite verses explicitly provided in the Context above.\n"
+                "2. If discussing stories or spiritual themes not explicitly quoted in the [Q#] excerpts, describe them conceptually by narrative name (e.g. 'In the story of the Companions of the Cave...'); DO NOT invent or misattribute chapter and verse numbers.\n"
+                "3. Conclude with: And Allah knows best (Allahu A'lam)."
+            )
+
+        elif intent == "VERSE_LOOKUP" and not exact_verses_loaded and (ayah_window or ayahs_context):
             window = ayah_window or ayahs_context or []
 
             # Provide current verse context
@@ -264,19 +447,30 @@ def get_scholar_response(
         elif intent == "PDF_ANALYSIS" and pdf_context:
             context_parts.append(f"Relevant excerpts from the uploaded document:\n{pdf_context}")
 
-        # Assemble the full prompt
-        full_prompt = query
+        # Assemble the full prompt (ensuring User Question is never truncated)
         context_str = ""
         if context_parts:
             context_str = "\n\n---\n\n".join(context_parts)
-            full_prompt = f"Context:\n{context_str}\n\n---\n\nUser Question: {query}"
+            if USE_LOCAL_LLM and len(context_str) > 3500:
+                context_str = context_str[:3500] + "\n\n[Context streamlined for local inference]"
+
+        system_rules = [
+            "CRITICAL SCHOLARLY INSTRUCTIONS:",
+            "1. CITE SCRIPTURE ACCURATELY: When quoting verses or Hadiths, cite them using the exact tags provided in context ([Q1], [H1], etc.).",
+            "2. ATTRIBUTION INTEGRITY: Never claim a specific quote or saying belongs to Sahih al-Bukhari, Sahih Muslim, or any collection unless that EXACT text appears inside the context excerpts above. If a user asks about a saying not in the context, clarify that it is unverified or not present.",
+            "3. RESPECT IKHTILAF: In matters of jurisprudence (Fiqh) where scholars differ across the 4 Sunni schools (Hanafi, Maliki, Shafi'i, Hanbali), explain each view respectfully without sectarian bias.",
+            "4. HUMILITY: Conclude your answer with traditional adab: And Allah knows best (Allahu A'lam).",
+        ]
+        system_rules_str = "\n".join(system_rules)
+        full_prompt = f"Context:\n{context_str}\n\n---\n\n{system_rules_str}\n\nQuestion: {query}\n\nScholarly Response:"
 
         # 3. Generation (Local LLM or Gemini)
         answer = None
         if USE_LOCAL_LLM:
             answer = _generate_scholar_local(full_prompt)
 
-        if not answer and client:
+        # Only use cloud Gemini if local LLM is disabled or returned None with client available
+        if not answer and client and not USE_LOCAL_LLM:
             log.info(f"Sending final prompt to {MODEL_SCHOLAR} (Context parts: {len(context_parts)})")
             response = client.models.generate_content(
                 model=MODEL_SCHOLAR,
@@ -290,6 +484,8 @@ def get_scholar_response(
             answer = response.text
 
         if not answer:
+            if USE_LOCAL_LLM:
+                return "⚠️ **Local HidayahLM Notice:** Local inference did not produce a response within the timeout. Please check that Ollama is running (`ollama list`) and try again."
             return "⚠️ **Scholar Agent error:** The model returned an empty response. Please try again."
 
         log.info("Response generated successfully.")
@@ -302,13 +498,30 @@ def get_scholar_response(
         if sensitivity_info["is_sensitive"] and sensitivity_info.get("advisory_notice"):
             answer = sensitivity_info["advisory_notice"] + "\n\n" + answer
 
+        if hadith_ref and not is_direct_lookup:
+            hadith_card = format_hadith_card(hadith_ref)
+            answer = f"{hadith_card}\n\n### 📖 Scholarly Analysis\n{answer}"
+
         if grounded_sources:
             answer += "\n\nSources:\n" + "\n".join(f"- {src}" for src in grounded_sources)
         return answer
 
     except genai.errors.APIError as e:
         if e.code == 429:
-            return "⚠️ **Scholar Agent is currently resting.** Hidayah AI is receiving a high volume of requests. Please wait a moment and try again."
+            log.warning("[FAILOVER] Gemini 429 Rate Limit hit. Attempting automatic failover to local HidayahLM model...")
+            fallback_answer = _generate_scholar_local(full_prompt)
+            if fallback_answer:
+                if context_str:
+                    fallback_answer = verify_grounded_citations(fallback_answer, context_str)
+                if sensitivity_info["is_sensitive"] and sensitivity_info.get("advisory_notice"):
+                    fallback_answer = sensitivity_info["advisory_notice"] + "\n\n" + fallback_answer
+                if hadith_ref and not is_direct_lookup:
+                    hadith_card = format_hadith_card(hadith_ref)
+                    fallback_answer = f"{hadith_card}\n\n### 📖 Scholarly Analysis\n{fallback_answer}"
+                if grounded_sources:
+                    fallback_answer += "\n\nSources:\n" + "\n".join(f"- {src}" for src in grounded_sources)
+                return fallback_answer
+            return "⚠️ **Gemini Free-Tier Rate Limit Reached.** Switched to local HidayahLM. Please ensure Ollama is running (`ollama run hidayah-lm:3b`)."
         return f"⚠️ **API Error:** {str(e.message) if hasattr(e, 'message') else str(e)}"
     except Exception as e:
         log.error(f"Scholar Agent error: {e}")

@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 680" width="100%" height="100%">
+  <defs>
+    <!-- Brushed Champagne Gold Metallic Gradient -->
+    <linearGradient id="champagneGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3DF99" />
+      <stop offset="35%" stop-color="#D4AF37" />
+      <stop offset="70%" stop-color="#AA8220" />
+      <stop offset="100%" stop-color="#E6C665" />
+    </linearGradient>
+
+    <!-- Subtle Gold Highlight for Central Monogram -->
+    <linearGradient id="goldAccent" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#B88E28" />
+      <stop offset="50%" stop-color="#D4AF37" />
+      <stop offset="100%" stop-color="#F7E7AD" />
+    </linearGradient>
+
+    <!-- Warm Ivory Gradient -->
+    <linearGradient id="warmIvory" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E2E8F0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Solid Obsidian Midnight Navy Background -->
+  <rect width="600" height="680" fill="#0B132B" />
+
+  <!-- MAIN GEOMETRIC EMBLEM (Centered at 300, 260) -->
+  <g transform="translate(300, 260)" fill="none" stroke-miterlimit="10">
+    
+    <!-- 1. OUTER RUB EL HIZB (8-Pointed Sacred Geometry Star) -->
+    <polygon points="
+        0,-172 50.4,-121.6 121.6,-121.6 121.6,-50.4 
+        172,0 121.6,50.4 121.6,121.6 50.4,121.6 
+        0,172 -50.4,121.6 -121.6,121.6 -121.6,50.4 
+        -172,0 -121.6,-50.4 -121.6,-121.6 -50.4,-121.6" stroke="url(#champagneGold)" stroke-width="11" stroke-linejoin="miter" />
+
+    <!-- 2. INNER INTERWOVEN IVORY STAR FRAME -->
+    <polyline points="
+        -98,42 -140,0 -98,-42 -98,-98 -42,-98 
+        0,-140 42,-98 98,-98 98,-42 140,0 98,42" stroke="url(#warmIvory)" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter" />
+
+    <!-- 3. OPEN MUSHAF (BOOK OF KNOWLEDGE) ARCHITECTURAL CHEVRONS -->
+    <!-- Upper Ivory Page Layer -->
+    <polyline points="-82,36 0,88 82,36" stroke="url(#warmIvory)" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter" />
+    <!-- Middle Champagne Gold Page Layer -->
+    <polyline points="-98,58 0,118 98,58" stroke="url(#champagneGold)" stroke-width="10" stroke-linecap="square" stroke-linejoin="miter" />
+    <!-- Lower Interlocking Star-Book Base -->
+    <polyline points="-98,78 -98,98 -42,98 0,142 42,98 98,98 98,78" stroke="url(#champagneGold)" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter" />
+
+    <!-- 4. CENTRAL 'H' & ARABIC 'HAA' (هـ) ARCHITECTURAL MONOGRAM -->
+    <!-- Left Pillar of the 'H' -->
+    <line x1="-44" y1="-64" x2="-44" y2="30" stroke="url(#champagneGold)" stroke-width="11" stroke-linecap="square" />
+    <!-- Right Pillar of the 'H' (Lower Segment) -->
+    <line x1="44" y1="8" x2="44" y2="30" stroke="url(#champagneGold)" stroke-width="11" stroke-linecap="square" />
+    <!-- Inner Right Pillar Support -->
+    <line x1="22" y1="8" x2="22" y2="38" stroke="url(#champagneGold)" stroke-width="10" stroke-linecap="square" />
+    <!-- Inner Left Pillar Support -->
+    <line x1="-22" y1="6" x2="-22" y2="38" stroke="url(#champagneGold)" stroke-width="10" stroke-linecap="square" />
+
+    <!-- Pointed Andalusian / Mihrab Arch & Continuous Arabic 'Haa' (هـ) Ribbon -->
+    <path d="M -22,-34 
+         Q -12,-66 0,-80 
+         Q 22,-54 22,-16 
+         C 22,8 -18,12 -18,-14 
+         C -18,-34 6,-34 6,-16 
+         C 6,0 -26,8 -44,24" stroke="url(#goldAccent)" stroke-width="11" stroke-linecap="butt" stroke-linejoin="round" />
+
+    <!-- Sweeping Right Ascender of the 'H' & 'Haa' Loop -->
+    <path d="M -14,-6 
+         C 8,12 44,4 44,-24 
+         L 44,-64" stroke="url(#champagneGold)" stroke-width="11" stroke-linecap="square" />
+  </g>
+
+  <!-- TYPOGRAPHY LOCKUP -->
+  <g text-anchor="middle" font-family="&#39;Montserrat&#39;, &#39;Inter&#39;, &#39;Helvetica Neue&#39;, sans-serif">
+    <!-- Primary Brand Name -->
+    <text x="300" y="535" fill="#F8FAFC" font-size="46" font-weight="700" letter-spacing="8">HIDAYAH AI</text>
+    
+    <!-- Secondary Subtitle -->
+    <text x="300" y="575" fill="#D4AF37" font-size="15" font-weight="500" letter-spacing="6.5">ISLAMIC AI PLATFORM</text>
+  </g>
+</svg>

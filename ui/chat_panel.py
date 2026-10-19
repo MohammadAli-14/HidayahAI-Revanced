@@ -7,7 +7,7 @@ persistent LanceDB document management, and intent routing.
 import streamlit as st
 from datetime import datetime
 from html import escape
-from utils.config import GOLD, GEMINI_API_KEY, get_logo_base64
+from utils.config import GOLD, GEMINI_API_KEY, get_logo_base64, USE_LOCAL_LLM, LOCAL_LLM_MODEL
 from utils.evidence import format_confidence
 from utils.sanitize import escape_html
 from agents.router import classify_intent
@@ -90,7 +90,7 @@ def _render_chat_header():
                     <p style="font-size: 0.8rem; font-weight: 700; color: white; margin: 0; letter-spacing: 0.5px;">Scholar AI</p>
                     <span style="font-size: 0.55rem; color: #10b981; display: flex; align-items: center; gap: 0.25rem; font-weight: 600; text-transform: uppercase;">
                         <span style="width: 5px; height: 5px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
-                        {"Online" if GEMINI_API_KEY else "Config Required"}
+                        {f"Local ({LOCAL_LLM_MODEL})" if USE_LOCAL_LLM else ("Online (Cloud)" if GEMINI_API_KEY else "Config Required")}
                     </span>
                 </div>
             </div>
@@ -295,31 +295,32 @@ def _process_query(query: str, ayahs: list[dict]):
     }
     badge = badge_map.get(intent, "")
 
-    if intent == "PDF_ANALYSIS":
-        # LanceDB Hybrid RAG pipeline
-        index = st.session_state.get("faiss_index")
-        chunks = st.session_state.get("pdf_chunks", [])
-        response = query_pdf(
-            question=query,
-            index=index,
-            chunks=chunks,
-            filename_filter=active_pdf_name,
-        )
-    else:
-        visible_window = st.session_state.get("visible_ayah_window", ayahs[:10] if ayahs else [])
-        tafsir_language = st.session_state.get("tafsir_language", "en")
+    with st.spinner("Reflecting upon canonical scriptures & classical exegesis..."):
+        if intent == "PDF_ANALYSIS":
+            # LanceDB Hybrid RAG pipeline
+            index = st.session_state.get("faiss_index")
+            chunks = st.session_state.get("pdf_chunks", [])
+            response = query_pdf(
+                question=query,
+                index=index,
+                chunks=chunks,
+                filename_filter=active_pdf_name,
+            )
+        else:
+            visible_window = st.session_state.get("visible_ayah_window", ayahs[:10] if ayahs else [])
+            tafsir_language = st.session_state.get("tafsir_language", "en")
 
-        if tafsir_language not in {"ar", "en", "ur"}:
-            audio_mode = st.session_state.get("audio_mode", "")
-            tafsir_language = "ur" if "Urdu" in audio_mode else "en"
+            if tafsir_language not in {"ar", "en", "ur"}:
+                audio_mode = st.session_state.get("audio_mode", "")
+                tafsir_language = "ur" if "Urdu" in audio_mode else "en"
 
-        response = get_scholar_response(
-            query=query,
-            intent=intent,
-            ayahs_context=ayahs[:10] if ayahs else None,
-            ayah_window=visible_window,
-            tafseer_language=tafsir_language,
-        )
+            response = get_scholar_response(
+                query=query,
+                intent=intent,
+                ayahs_context=ayahs[:10] if ayahs else None,
+                ayah_window=visible_window,
+                tafseer_language=tafsir_language,
+            )
 
     # Add assistant response to history
     st.session_state.chat_history.append({

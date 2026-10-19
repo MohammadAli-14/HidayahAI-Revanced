@@ -51,9 +51,9 @@ def _generate_local_llm(prompt: str, system_prompt: str) -> str | None:
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.3,
-            "max_tokens": 2048,
+            "max_tokens": 1536,
         }
-        res = requests.post(f"{LOCAL_LLM_URL}/chat/completions", json=payload, timeout=60)
+        res = requests.post(f"{LOCAL_LLM_URL}/chat/completions", json=payload, timeout=180)
         if res.status_code == 200:
             data = res.json()
             return data["choices"][0]["message"]["content"]

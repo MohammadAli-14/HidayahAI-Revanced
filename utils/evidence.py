@@ -118,6 +118,7 @@ def normalize_hadith(
         "citation_id": resolved_citation_id,
         "source_id": source_id,
         "source_name": source_name,
+        "title": title,
         "reference": reference,
         "excerpt": (excerpt or "").strip(),
         "url": resolved_canonical,

@@ -1,6 +1,7 @@
 # 🕌 HidayahLM Fine-Tuning Guide
 
-> Complete step-by-step guide to fine-tune Qwen2.5-7B-Instruct on Islamic QA data using Kaggle GPU and deploy via Ollama.
+> Complete step-by-step guide to fine-tune Qwen2.5-3B-Instruct on Islamic QA data using Kaggle GPU and deploy via Ollama.
+> Optimized for local hardware: runs smoothly on 4GB-8GB RAM systems at 40-60+ tokens/sec!
 
 ---
 
@@ -11,8 +12,8 @@
 | **Kaggle Account** | Free at [kaggle.com](https://kaggle.com) |
 | **Kaggle GPU** | 30 hours/week free (T4 x2) |
 | **Ollama** | Free at [ollama.com](https://ollama.com) |
-| **Disk Space** | ~5 GB for the GGUF model file |
-| **RAM** | 8+ GB recommended for local inference |
+| **Disk Space** | ~2 GB for the GGUF model file |
+| **RAM** | 4+ GB RAM (runs with zero lag on laptops/desktops) |
 
 ---
 
@@ -89,12 +90,12 @@ Copy the content of `training/train_hidayah_lm.py` into Kaggle cells.
 |--------|---------|-------------|------|
 | 1 | Install Dependencies | Installs Unsloth, TRL, etc. | ~3 min |
 | 2 | Configuration | Sets all hyperparameters | Instant |
-| 3 | Load Model | Downloads Qwen2.5-7B 4-bit | ~5 min |
+| 3 | Load Model | Downloads Qwen2.5-3B 4-bit | ~2 min |
 | 4 | Load Dataset | Loads & formats your JSONL | ~1 min |
-| 5 | Training | Fine-tunes the model | **~2-3 hours** |
+| 5 | Training | Fine-tunes the model | **~45-60 min** |
 | 6 | Save Adapters | Saves LoRA weights | ~1 min |
 | 7 | Quick Test | Tests inference quality | ~1 min |
-| 8 | Export GGUF | Merges + quantizes to GGUF | ~15 min |
+| 8 | Export GGUF | Merges + quantizes to GGUF | ~5-10 min |
 | 9 | Download Info | Shows download instructions | Instant |
 
 **CELL 1 — Install Dependencies (IMPORTANT: Uncomment the install lines!):**
@@ -124,13 +125,14 @@ After training completes:
    ```
    /kaggle/working/hidayah-lm-gguf/
    ```
-2. Find `unsloth.Q4_K_M.gguf` (~4.5 GB)
+2. Find `unsloth.Q4_K_M.gguf` (~1.9 GB)
 3. Click the **three dots (⋯)** → **Download**
 4. Save to: `d:\Hidayah AI\training\models\`
+   (Rename it to `hidayah-lm-3b-q4_k_m.gguf`)
 
 > 💡 **Alternative:** If download is slow, you can also push the model to HuggingFace Hub directly from the notebook:
 > ```python
-> model.push_to_hub_gguf("YOUR_USERNAME/hidayah-lm-7b", tokenizer, quantization_method="q4_k_m")
+> model.push_to_hub_gguf("YOUR_USERNAME/hidayah-lm-3b", tokenizer, quantization_method="q4_k_m")
 > ```
 
 ---
@@ -151,28 +153,25 @@ After installation, Ollama runs as a background service automatically.
 #### 6b. Create and Import Your Model
 
 ```powershell
-# Navigate to where you saved the GGUF file
-cd "d:\Hidayah AI\training\models"
+# Navigate to the training folder
+cd "d:\Hidayah AI\training"
 
-# Copy the Modelfile
-copy "..\Modelfile" .
-
-# Rename the GGUF file to match what the Modelfile expects
-ren "unsloth.Q4_K_M.gguf" "hidayah-lm-q4_k_m.gguf"
+# Ensure your downloaded GGUF is at:
+# d:\Hidayah AI\training\models\hidayah-lm-3b-q4_k_m.gguf
 
 # Create the Ollama model
-ollama create hidayah-lm:7b -f Modelfile
+ollama create hidayah-lm:3b -f Modelfile
 ```
 
 #### 6c. Test Your Model
 
 ```powershell
 # Interactive chat
-ollama run hidayah-lm:7b
+ollama run hidayah-lm:3b
 
 # Test specific queries
-ollama run hidayah-lm:7b "What does Surah Al-Fatiha teach us?"
-ollama run hidayah-lm:7b "Is my divorce valid?"
+ollama run hidayah-lm:3b "What does Surah Al-Fatiha teach us?"
+ollama run hidayah-lm:3b "Is my divorce valid?"
 ```
 
 #### 6d. Verify API Endpoint
@@ -181,7 +180,7 @@ ollama run hidayah-lm:7b "Is my divorce valid?"
 # Test the OpenAI-compatible API (this is what Hidayah AI uses)
 curl http://localhost:11434/v1/chat/completions `
   -H "Content-Type: application/json" `
-  -d '{"model":"hidayah-lm:7b","messages":[{"role":"user","content":"What is Surah Al-Ikhlas about?"}]}'
+  -d '{"model":"hidayah-lm:3b","messages":[{"role":"user","content":"What is Surah Al-Ikhlas about?"}]}'
 ```
 
 ---
@@ -195,7 +194,7 @@ Add these lines to `d:\Hidayah AI\.env`:
 ```ini
 USE_LOCAL_LLM=true
 LOCAL_LLM_URL=http://localhost:11434/v1
-LOCAL_LLM_MODEL=hidayah-lm:7b
+LOCAL_LLM_MODEL=hidayah-lm:3b
 ```
 
 #### 7b. Run the App

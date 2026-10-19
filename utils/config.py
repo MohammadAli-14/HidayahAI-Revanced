@@ -9,8 +9,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google import genai
 
-#  Load Environment 
+# Load Environment
 load_dotenv()
+
 
 def get_secret(key: str, default: str = "") -> str:
     """Resolve secret from environment or Streamlit secrets."""
@@ -18,7 +19,7 @@ def get_secret(key: str, default: str = "") -> str:
     val = os.getenv(key)
     if val:
         return val
-    
+
     # 2. Try Streamlit Secrets (Production)
     try:
         import streamlit as st
@@ -26,8 +27,9 @@ def get_secret(key: str, default: str = "") -> str:
             return st.secrets[key]
     except Exception:
         pass
-        
+
     return default
+
 
 GEMINI_API_KEY = get_secret("GEMINI_API_KEY")
 TAVILY_API_KEY = get_secret("TAVILY_API_KEY")
@@ -35,24 +37,24 @@ TAVILY_API_KEY = get_secret("TAVILY_API_KEY")
 # Configure Gemini client globally
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-#  Model Tier Strategy 
-MODEL_ROUTER = "gemini-2.5-flash"            # Intent classification (fastest)
-MODEL_SCHOLAR = "gemini-2.5-flash"           # Scholarly chat & RAG answers (generous free tier)
-MODEL_EMBEDDING = "gemini-embedding-001"     # Vector embeddings for RAG
+# Model Tier Strategy
+MODEL_ROUTER = "gemini-2.5-flash"             # Intent classification (fastest)
+MODEL_SCHOLAR = "gemini-2.5-flash"            # Scholarly chat & RAG answers (generous free tier)
+MODEL_EMBEDDING = "gemini-embedding-001"      # Vector embeddings for RAG
 
-#  LanceDB & Reranking Strategy 
+# LanceDB & Reranking Strategy
 _APP_DIR = Path(__file__).resolve().parent.parent
 LANCEDB_DIR = _APP_DIR / "data" / "lancedb"
 LANCEDB_DIR.mkdir(parents=True, exist_ok=True)
 RERANKER_MODEL = "ms-marco-MiniLM-L-12-v2"    # Ultra-fast CPU cross-encoder reranker
-USE_HYBRID_SEARCH = True                     # Combine Tantivy BM25 FTS + Vector embeddings
+USE_HYBRID_SEARCH = True                      # Combine Tantivy BM25 FTS + Vector embeddings
 
-#  Optional Local / Open-Source LLM (Ollama / vLLM fallback)
-USE_LOCAL_LLM = get_secret("USE_LOCAL_LLM", "false").lower() in {"true", "1", "yes"}
+# Optional Local / Open-Source LLM (Ollama / vLLM fallback)
+USE_LOCAL_LLM = get_secret("USE_LOCAL_LLM", "true").lower() in {"true", "1", "yes"}
 LOCAL_LLM_URL = get_secret("LOCAL_LLM_URL", "http://localhost:11434/v1")
-LOCAL_LLM_MODEL = get_secret("LOCAL_LLM_MODEL", "qwen2.5:7b")
+LOCAL_LLM_MODEL = get_secret("LOCAL_LLM_MODEL", "hidayah-lm:3b")
 
-#  Design Tokens (from design.instructions.md) 
+# Design Tokens (from design.instructions.md)
 MIDNIGHT_BLUE = "#1a2a40"
 BG_DARK = "#0F172A"
 GOLD = "#D4AF37"
@@ -60,21 +62,83 @@ EMERALD_DEEP = "#064E3B"
 EMERALD_LIGHT = "#10B981"
 BG_LIGHT = "#F8FAFC"
 
-#  Logo 
-_APP_DIR = Path(__file__).resolve().parent.parent
-LOGO_PATH = _APP_DIR / "Hadayah AI.png"
+# ── Logo Configuration ──
+# Elite vector emblem synced to BG_DARK (#0F172A), GOLD (#D4AF37), and BG_LIGHT (#F8FAFC)
+_DEFAULT_LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="hidayahGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3DF99" />
+      <stop offset="35%" stop-color="#D4AF37" />
+      <stop offset="70%" stop-color="#AA8220" />
+      <stop offset="100%" stop-color="#E6C665" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#0F172A" />
+  <g transform="translate(256, 256) scale(1.15)" fill="none" stroke-miterlimit="10">
+    <polygon points="0,-172 50.4,-121.6 121.6,-121.6 121.6,-50.4 172,0 121.6,50.4 121.6,121.6 50.4,121.6 0,172 -50.4,121.6 -121.6,121.6 -121.6,50.4 -172,0 -121.6,-50.4 -121.6,-121.6 -50.4,-121.6" stroke="url(#hidayahGold)" stroke-width="12" />
+    <polyline points="-98,42 -140,0 -98,-42 -98,-98 -42,-98 0,-140 42,-98 98,-98 98,-42 140,0 98,42" stroke="#F8FAFC" stroke-width="10" stroke-linecap="square" />
+    <polyline points="-82,36 0,88 82,36" stroke="#F8FAFC" stroke-width="10" stroke-linecap="square" />
+    <polyline points="-98,58 0,118 98,58" stroke="url(#hidayahGold)" stroke-width="11" stroke-linecap="square" />
+    <polyline points="-98,78 -98,98 -42,98 0,142 42,98 98,98 98,78" stroke="url(#hidayahGold)" stroke-width="10" stroke-linecap="square" />
+    <line x1="-44" y1="-64" x2="-44" y2="30" stroke="url(#hidayahGold)" stroke-width="12" stroke-linecap="square" />
+    <line x1="44" y1="8" x2="44" y2="30" stroke="url(#hidayahGold)" stroke-width="12" stroke-linecap="square" />
+    <line x1="22" y1="8" x2="22" y2="38" stroke="url(#hidayahGold)" stroke-width="10" stroke-linecap="square" />
+    <line x1="-22" y1="6" x2="-22" y2="38" stroke="url(#hidayahGold)" stroke-width="10" stroke-linecap="square" />
+    <path d="M -22,-34 Q -12,-66 0,-80 Q 22,-54 22,-16 C 22,8 -18,12 -18,-14 C -18,-34 6,-34 6,-16 C 6,0 -26,8 -44,24" stroke="url(#hidayahGold)" stroke-width="12" stroke-linejoin="round" />
+    <path d="M -14,-6 C 8,12 44,4 44,-24 L 44,-64" stroke="url(#hidayahGold)" stroke-width="12" stroke-linecap="square" />
+  </g>
+</svg>"""
+
+
+def _resolve_logo_path() -> Path:
+    """Resolve the active logo file in project root, auto-creating hidayah_logo.svg if missing."""
+    candidates = [
+        _APP_DIR / "hidayah_logo.svg",
+        _APP_DIR / "hidayah_logo.png",
+        _APP_DIR / "hidayah_logo.jpg",
+        _APP_DIR / "Hidayah AI.png",
+        _APP_DIR / "Hidayah AI.jpg",
+        _APP_DIR / "Hadayah AI.jpg",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+
+    # Auto-create the crisp vector SVG in root if no logo file exists yet
+    default_svg_path = _APP_DIR / "hidayah_logo.svg"
+    try:
+        default_svg_path.write_text(_DEFAULT_LOGO_SVG, encoding="utf-8")
+    except Exception:
+        pass
+    return default_svg_path
+
+
+LOGO_PATH = _resolve_logo_path()
 
 
 def get_logo_base64() -> str:
-    """Return the logo as a base64-encoded data URI for embedding in HTML."""
+    """Return the logo as a properly typed base64-encoded data URI for embedding in HTML."""
+    path = _resolve_logo_path()
     try:
-        with open(LOGO_PATH, "rb") as f:
-            data = base64.b64encode(f.read()).decode()
-        return f"data:image/png;base64,{data}"
+        with open(path, "rb") as f:
+            data = base64.b64encode(f.read()).decode("utf-8")
+        ext = path.suffix.lower()
+        if ext == ".svg":
+            mime = "image/svg+xml"
+        elif ext in {".jpg", ".jpeg"}:
+            mime = "image/jpeg"
+        elif ext == ".webp":
+            mime = "image/webp"
+        else:
+            mime = "image/png"
+        return f"data:{mime};base64,{data}"
     except FileNotFoundError:
-        return ""
+        # Fallback to in-memory SVG if disk is read-only
+        data = base64.b64encode(_DEFAULT_LOGO_SVG.encode("utf-8")).decode("utf-8")
+        return f"data:image/svg+xml;base64,{data}"
 
-#  AlQuran.cloud API 
+
+# AlQuran.cloud API
 QURAN_API_BASE = "https://api.alquran.cloud/v1"
 ARABIC_EDITION = "ar.alafasy"       # Mishary Rashid Alafasy (with audio)
 ENGLISH_EDITION = "en.asad"         # Muhammad Asad English translation
@@ -82,7 +146,7 @@ URDU_EDITION = "ur.jalandhry"       # Maulana Fateh Muhammad Jalandhry
 ENGLISH_AUDIO_EDITION = "en.walk"   # Ibrahim Walk
 URDU_AUDIO_EDITION = "ur.khan"      # Shamshad Ali Khan
 
-#  Tafseer & Hadith Sources 
+# Tafseer & Hadith Sources
 TAFSEER_EDITIONS = {
     "ar.muyassar": "Tafsir Al-Muyassar",
     "ar.jalalayn": "Tafsir Al-Jalalayn",
@@ -124,12 +188,12 @@ TAFSEER_PREFERRED_BY_LANGUAGE = {
     ],
 }
 
-#  Hadith Source Strategy 
+# Hadith Source Strategy
 # Primary: sunnah.com API (verified hadith with grades).
 # Fallback: Tavily web search filtered to trusted domains (commentary only).
 SUNNAH_API_KEY = get_secret("SUNNAH_API_KEY")
 SUNNAH_API_BASE = "https://api.sunnah.com/v1"
-HADITH_PROVIDER_PRIMARY = "sunnah_api"      # "sunnah_api" | "web_search"
+HADITH_PROVIDER_PRIMARY = get_secret("HADITH_PROVIDER_PRIMARY", "canonical_lancedb")      # "canonical_lancedb" | "sunnah_api" | "web_search"
 HADITH_TRUSTED_DOMAINS = [
     "sunnah.com",
     "islamqa.info",
@@ -150,7 +214,24 @@ HADITH_COLLECTIONS = {
     "riyadussalihin": "Riyad as-Salihin",
 }
 
-#  Quran.com v4 API ─
+# ── Keyless Edge CDN Mirrors (fawazahmed0/hadith-api) ──
+HADITH_CDN_PRIMARY = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1"
+HADITH_CDN_SECONDARY = "https://raw.githubusercontent.com/fawazahmed0/hadith-api/1"
+HADITH_CDN_TIMEOUT = 3.5  # Max seconds before fallback to local LanceDB
+
+# Collection slug mappings for keyless CDN editions (English, Arabic, Urdu)
+HADITH_CDN_EDITIONS = {
+    "bukhari": {"en": "eng-bukhari", "ar": "ara-bukhari", "ur": "urd-bukhari"},
+    "muslim": {"en": "eng-muslim", "ar": "ara-muslim", "ur": "urd-muslim"},
+    "abudawud": {"en": "eng-abudawud", "ar": "ara-abudawud", "ur": "urd-abudawud"},
+    "tirmidhi": {"en": "eng-tirmidhi", "ar": "ara-tirmidhi", "ur": "urd-tirmidhi"},
+    "nasai": {"en": "eng-nasai", "ar": "ara-nasai", "ur": "urd-nasai"},
+    "ibnmajah": {"en": "eng-ibnmajah", "ar": "ara-ibnmajah", "ur": "urd-ibnmajah"},
+    "malik": {"en": "eng-malik", "ar": "ara-malik", "ur": "urd-malik"},
+    "ahmad": {"en": "eng-ahmad", "ar": "ara-ahmad", "ur": "urd-ahmad"},
+}
+
+# Quran.com v4 API ─
 QURANCOM_API_BASE = "https://api.quran.com/api/v4"
 # Quran.com tafsir resource IDs — real English/Urdu tafseer (not just translations)
 QURANCOM_TAFSIRS = {
@@ -173,7 +254,7 @@ QURANCOM_TAFSIRS = {
 # Keep False for production-facing UX; enable for internal QA/debugging.
 SHOW_TECHNICAL_SOURCE_DETAILS = False
 
-#  Audio Modes ─
+# Audio Modes ─
 AUDIO_MODES = [
     "Arabic (Mishary Rashid)",
     "Arabic + Urdu Translation",
@@ -182,7 +263,7 @@ AUDIO_MODES = [
     "English Translation Only",
 ]
 
-#  30 Juz Metadata 
+# 30 Juz Metadata
 JUZ_DATA = {
     1:  {"name": "Alif Lam Mim", "arabic": "الم", "english": "Alif Lam Mim", "surahs": "Al-Fatiha 1 – Al-Baqarah 141"},
     2:  {"name": "Sayaqulu", "arabic": "سيقول", "english": "They will say", "surahs": "Al-Baqarah 142 – Al-Baqarah 252"},
