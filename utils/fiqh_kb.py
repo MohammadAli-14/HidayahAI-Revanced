@@ -151,6 +151,7 @@ FIQH_KNOWLEDGE_BASE: Dict[str, Dict[str, Any]] = {
         "keywords": [
             r"\bfatihah\s+behind\s+(?:the\s+)?imam\b",
             r"\breciting\s+fatihah\s+behind\s+(?:the\s+)?imam\b",
+            r"\b(?:fatihah|fatiha)\b.*?\b(?:behind|khalf)\b.*?\b(?:the\s+)?imam\b",
             r"\bqira['a]t?\s+khalf\s+al-?imam\b",
         ],
         "classical_consensus": (
@@ -184,10 +185,9 @@ FIQH_KNOWLEDGE_BASE: Dict[str, Dict[str, Any]] = {
     "qunut_fajr": {
         "title": "Qunūt Supplication in Regular Daily Fajr Prayer",
         "keywords": [
-            r"\bqunut\s+(?:in\s+)?fajr\b",
-            r"\bqunoot\s+(?:in\s+)?fajr\b",
-            r"\bfajr\s+qunut\b",
-            r"\bfajr\s+qunoot\b",
+            r"\bqun[ou]+t\s+(?:in\s+)?fajr\b",
+            r"\bfajr\s+qun[ou]+t\b",
+            r"\bqun[ou]+t\b.*?\bfajr\b",
         ],
         "classical_consensus": (
             "All schools agree Qunut is prescribed during acute crises (Qunut al-Nawazil). They differ on regular daily Fajr Qunut."
@@ -258,14 +258,20 @@ def is_procedural_prayer_query(query: str) -> bool:
         return False
 
     procedural_indicators = [
-        r"\braf'?\s*al-?yadayn\b",
+        r"\braf['’]?\s*(?:al[- ]?)?yadayn\b",
+        r"\bhands?\s+before\s+and\s+after\s+ruku\b",
         r"\braising\s+hands?\b",
         r"\bwhere\s+to\s+place\s+hands?\b",
+        r"\bhands?\s+(?:be\s+)?placed\b",
         r"\bhands?\s+on\s+chest\b",
         r"\bhands?\s+below\s+navel\b",
+        r"\b(?:below|under)\s+(?:the\s+)?navel\b",
+        r"\b(?:on|upon)\s+(?:the\s+)?chest\b",
         r"\bsaying\s+amin\b",
-        r"\bqunut\s+(?:in\s+)?fajr\b",
-        r"\bfatihah\s+behind\s+(?:the\s+)?imam\b",
+        r"\bamin\b.*?\b(?:aloud|loudly|silently|quietly|softly)\b",
+        r"\bqun[ou]+t\s+(?:in\s+)?fajr\b",
+        r"\bqun[ou]+t\b.*?\bfajr\b",
+        r"\b(?:fatihah|fatiha)\b.*?\b(?:behind|khalf)\b.*?\b(?:the\s+)?imam\b",
         r"\bwad'?\s*al-?yadayn\b",
         r"\bsadl\s+vs\s+qabd\b",
     ]

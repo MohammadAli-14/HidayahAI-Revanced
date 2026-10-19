@@ -34,9 +34,9 @@ class TestFiqhAndGuardrails(unittest.TestCase):
         self.assertIn("Hanbali", schools)
 
         # Check primary proofs
-        self.assertIn("Ibn Mas", schools["Hanafi"]["proofs"])
-        self.assertIn("Ibn ʿUmar", schools["Shafi'i"]["proofs"])
-        self.assertIn("Amal Ahl al-Mad", schools["Maliki"]["proofs"])
+        self.assertIn("ibn Mas", schools["Hanafi"]["proofs"])
+        self.assertIn("ibn ʿUmar", schools["Shafi'i"]["proofs"])
+        self.assertIn("Ahl al-Mad", schools["Maliki"]["proofs"])
 
     def test_procedural_suppression(self):
         # Pure procedural question -> True
