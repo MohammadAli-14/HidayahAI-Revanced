@@ -78,6 +78,12 @@ THEOLOGICAL & ACADEMIC DIRECTIVES (CRITICAL — strict compliance required):
 
 
 
+def is_local_llm_active() -> bool:
+    """Dynamically check if local LLM is enabled in configuration or environment."""
+    import utils.config
+    return getattr(utils.config, "USE_LOCAL_LLM", False)
+
+
 def _generate_scholar_local(prompt: str) -> str | None:
     """Generate scholarly response using local Ollama/vLLM instance."""
     try:
