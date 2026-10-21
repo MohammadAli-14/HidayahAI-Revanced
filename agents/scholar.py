@@ -300,13 +300,13 @@ def get_scholar_response(
             is_procedural = is_procedural_prayer_query(query)
             if not exact_verses_loaded and not hadith_ref and not is_procedural:
                 try:
-                    verse_k = 2 if USE_LOCAL_LLM else 3
+                    verse_k = 2 if is_local_llm_active() else 3
                     canonical_verses = search_canonical_quran(query, top_k=verse_k)
                     if canonical_verses:
                         quran_context_lines = []
                         for idx, v in enumerate(canonical_verses, start=1):
                             v_text = v.get("text", "").strip()
-                            if USE_LOCAL_LLM and len(v_text) > 250:
+                            if is_local_llm_active() and len(v_text) > 250:
                                 v_text = v_text[:250] + "..."
                             if v_text:
                                 quran_context_lines.append(f"[Q{idx}]\n{v_text}")
@@ -326,7 +326,7 @@ def get_scholar_response(
                 grounded_sources.append(f"[H1] {h_title} | {h_auth} | canonical:{hadith_ref.get('canonical_status', 'verified')} — {hadith_ref.get('canonical_url', '')}")
             else:
                 try:
-                    hadith_k = 2 if USE_LOCAL_LLM else 3
+                    hadith_k = 2 if is_local_llm_active() else 3
                     canonical_hadiths = search_canonical_hadiths(query, top_k=hadith_k)
                     if canonical_hadiths:
                         hadith_context_lines = []
@@ -335,7 +335,7 @@ def get_scholar_response(
                             h_no = h.get("hadith_no", "")
                             h_chapter = h.get("chapter", "")
                             h_text = h.get("text", "").strip()
-                            if USE_LOCAL_LLM and len(h_text) > 250:
+                            if is_local_llm_active() and len(h_text) > 250:
                                 h_text = h_text[:250] + "..."
                             hadith_context_lines.append(
                                 f"[H{idx}] {h_book} #{h_no} (Chapter: {h_chapter})\n{h_text}"
@@ -347,22 +347,24 @@ def get_scholar_response(
                     log.warning(f"Canonical Hadith retrieval notice: {h_err}")
 
             # C. Supplementary Compact Web Search (Domain-Verified Only)
-            try:
-                web_results = search_web(f"Islamic scholarly {query}")
-                trusted_results = []
-                for r in (web_results or []):
-                    url = r.get("url", "")
-                    if not url or is_trusted_scholarly(url):
-                        trusted_results.append(r)
-                if trusted_results:
-                    best_r = trusted_results[0]
-                    if best_r.get("url") and best_r.get("title") != "Search Error":
-                        snippet = best_r.get("content", "").strip()[:350]
-                        if snippet:
-                            context_parts.append(f"Domain-Verified Scholarly Commentary [W1]:\nSource: {best_r.get('title', 'Reference')}\n{snippet}...")
-                            grounded_sources.append(f"[W1] {best_r.get('title', 'Web Reference')} | {best_r.get('url', '')} | domain_verified")
-            except Exception as w_err:
-                log.warning(f"Web search notice: {w_err}")
+            # Suppressed if verified Fiqh KB is present or local model is active to preserve 1024-token budget
+            if not fiqh_topic and not is_local_llm_active():
+                try:
+                    web_results = search_web(f"Islamic scholarly {query}")
+                    trusted_results = []
+                    for r in (web_results or []):
+                        url = r.get("url", "")
+                        if not url or is_trusted_scholarly(url):
+                            trusted_results.append(r)
+                    if trusted_results:
+                        best_r = trusted_results[0]
+                        if best_r.get("url") and best_r.get("title") != "Search Error":
+                            snippet = best_r.get("content", "").strip()[:350]
+                            if snippet:
+                                context_parts.append(f"Domain-Verified Scholarly Commentary [W1]:\nSource: {best_r.get('title', 'Reference')}\n{snippet}...")
+                                grounded_sources.append(f"[W1] {best_r.get('title', 'Web Reference')} | {best_r.get('url', '')} | domain_verified")
+                except Exception as w_err:
+                    log.warning(f"Web search notice: {w_err}")
 
             # D. Sensitive Fiqh Multi-Madhhab Guidance Instruction
             if sensitivity_info["requires_madhhab_synthesis"]:
@@ -482,7 +484,7 @@ def get_scholar_response(
         context_str = ""
         if context_parts:
             context_str = "\n\n---\n\n".join(context_parts)
-            if USE_LOCAL_LLM and len(context_str) > 2200:
+            if is_local_llm_active() and len(context_str) > 2200:
                 context_str = context_str[:2200] + "\n\n[Context streamlined for local inference]"
 
         system_rules = [
@@ -498,11 +500,11 @@ def get_scholar_response(
 
         # 3. Generation (Local LLM or Gemini)
         answer = None
-        if USE_LOCAL_LLM:
+        if is_local_llm_active():
             answer = _generate_scholar_local(full_prompt)
 
         # Only use cloud Gemini if local LLM is disabled or returned None with client available
-        if not answer and client and not USE_LOCAL_LLM:
+        if not answer and client and not is_local_llm_active():
             log.info(f"Sending final prompt to {MODEL_SCHOLAR} (Context parts: {len(context_parts)})")
             response = client.models.generate_content(
                 model=MODEL_SCHOLAR,
@@ -516,7 +518,7 @@ def get_scholar_response(
             answer = response.text
 
         if not answer:
-            if USE_LOCAL_LLM:
+            if is_local_llm_active():
                 return "⚠️ **Local HidayahLM Notice:** Local inference did not produce a response within the timeout. Please check that Ollama is running (`ollama list`) and try again."
             return "⚠️ **Scholar Agent error:** The model returned an empty response. Please try again."
 
