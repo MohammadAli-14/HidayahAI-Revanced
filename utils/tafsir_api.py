@@ -193,6 +193,25 @@ def fetch_multisource_tafseer_for_ayah(
     requested_language = (language or "").strip().lower()
     tafseer_items = []
 
+    # ── Step 0: Deterministic Offline Canonical Exegesis Store (Zero-Latency, Verse-Isolated) ──
+    try:
+        from utils.tafsir_store import has_canonical_tafsir, get_canonical_tafsir_for_ayah
+        if has_canonical_tafsir(surah_number, ayah_number, requested_language):
+            canonical_items = get_canonical_tafsir_for_ayah(
+                surah_number=surah_number,
+                ayah_number=ayah_number,
+                language=requested_language,
+                max_sources=max_sources,
+            )
+            if canonical_items:
+                log.info(
+                    f"Canonical offline store hit: {len(canonical_items)} isolated tafsir for "
+                    f"{surah_number}:{ayah_number} ({requested_language})"
+                )
+                return canonical_items[:max_sources]
+    except Exception as c_err:
+        log.warning(f"Canonical tafsir store lookup notice: {c_err}")
+
     #  Step 1: Try Quran.com v4 for EN/UR (real tafseer) 
     if requested_language in {"en", "ur"}:
         try:
