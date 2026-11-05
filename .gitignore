@@ -1,21 +1,58 @@
-.env
-__pycache__/
-*.pyc
-*.faiss
-.venv/
-*.egg-info/
-dist/
-build/
-.streamlit/secrets.toml
-uploaded_pdfs/
-data/
+# ==============================================================================
+# HIDAYAH AI - COMPREHENSIVE GITIGNORE
+# ==============================================================================
 
-training/models/
-training/data/
+# 1. Environment Secrets, Keys & Credentials
+.env*
+!.env.example
+*.local
+.streamlit/secrets.toml
+*.pem
+*.key
+*.cert
+
+# 2. Internal Documentation, Research Papers & Academic Specifications
+docs/
+*.pdf
+
+# 3. Architectural Plans & Working Notes
+PLAN-*.md
+*-plan.md
+*.plan
+*.scratch
+
+# 4. Large Archives, Datasets, Cache & Binaries
+*.zip
+*.tar.gz
+*.rar
+*.7z
 *.gguf
 *.bin
+*.pt
+*.safetensors
+*.faiss
+data/
+training/models/
+training/data/
+uploaded_pdfs/
 
-# Legacy / Nested workspaces
+# 5. Build Artifacts & Frontend Packages
+frontend/node_modules/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+node_modules/
+.next/
+dist/
+build/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# 6. Virtual Environments & Tooling Caches
+.venv/
+.agents/
+skills-lock.json
+
+# 7. Legacy / Nested workspaces
 Hidayah AI - Copy/
 .temp_ag_kit/
-
