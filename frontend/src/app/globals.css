@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+:root {
+  --background: #070A10;
+  --foreground: #F8FAFC;
+  --gold: #D4AF37;
+  --gold-light: #F3E5AB;
+  --gold-dark: #AA8220;
+  --emerald-deep: #064E3B;
+  --emerald-light: #10B981;
+  --surface-dark: #0F1726;
+  --glass-bg: rgba(15, 23, 38, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-gold-dark: var(--gold-dark);
+  --color-emerald-deep: var(--emerald-deep);
+  --color-emerald-light: var(--emerald-light);
+  --color-surface: var(--surface-dark);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
+  --font-arabic: var(--font-amiri), "Amiri", "Scheherazade New", serif;
+}
+
+body {
+  background-color: #070A10;
+  background-image: 
+    radial-gradient(circle at 50% -10%, rgba(6, 78, 59, 0.22) 0%, transparent 60%),
+    radial-gradient(circle at 100% 60%, rgba(212, 175, 55, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(15, 23, 42, 0.7) 0%, transparent 50%),
+    linear-gradient(180deg, #070A10 0%, #0A0F19 100%);
+  background-attachment: fixed;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Arabic Quranic typography standards */
+.quran-arabic {
+  font-family: var(--font-arabic);
+  direction: rtl;
+  line-height: 2.5;
+  word-spacing: 0.18em;
+  text-rendering: optimizeLegibility;
+}
+
+/* Urdu Nastaliq typography */
+.urdu-text {
+  font-family: var(--font-arabic), "Jameel Noori Nastaleeq", serif;
+  direction: rtl;
+  line-height: 2.1;
+  text-rendering: optimizeLegibility;
+}
+
+/* Premium Frosted Glass Panels */
+.glass-panel {
+  background: rgba(14, 21, 34, 0.68);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 36px -10px rgba(0, 0, 0, 0.65);
+}
+
+.glass-header {
+  background: rgba(9, 13, 22, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.16);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.glass-sidebar {
+  background: rgba(8, 12, 20, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-drawer {
+  background: rgba(9, 13, 22, 0.94);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-left: 1px solid rgba(212, 175, 55, 0.2);
+  box-shadow: -15px 0 40px rgba(0, 0, 0, 0.7);
+}
+
+.glass-audio-bar {
+  background: rgba(8, 12, 20, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(212, 175, 55, 0.22);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.7);
+}
+
+/* Active Reciting Verse Highlight */
+.active-verse-card {
+  border-color: rgba(212, 175, 55, 0.65) !important;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.08) 0%, rgba(15, 23, 38, 0.85) 100%) !important;
+  box-shadow: 0 0 25px -4px rgba(212, 175, 55, 0.18) !important;
+}
+
+/* Medina Gold Gradient Text */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #F3DF99 0%, #D4AF37 50%, #AA8220 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Ergonomic 8px Medina Gold Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.35);
+  border-radius: 9999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.75);
+}
+::-webkit-scrollbar-thumb:active {
+  background: rgba(212, 175, 55, 0.95);
+}
+
+/* Firefox scrollbar standard */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.35) transparent;
+}
+
+/* Smooth Touch Momentum & Overscroll Containment */
+.overscroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
