@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Radial Vignette (Sacred Deep Emerald) -->
+    <radialGradient id="emeraldBg" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#0E3D2B" />
+      <stop offset="45%" stop-color="#08281D" />
+      <stop offset="80%" stop-color="#041811" />
+      <stop offset="100%" stop-color="#020E0A" />
+    </radialGradient>
+
+    <!-- Inner Star Subtle Depth Glow -->
+    <radialGradient id="starInnerGlow" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#144C36" stop-opacity="0.6" />
+      <stop offset="60%" stop-color="#08281D" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#03150E" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Master Champagne Satin Gold Gradient -->
+    <linearGradient id="goldMetallic" x1="15%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#FBF0B9" />
+      <stop offset="25%" stop-color="#E5C772" />
+      <stop offset="50%" stop-color="#D4AF37" />
+      <stop offset="75%" stop-color="#AA8220" />
+      <stop offset="100%" stop-color="#EED588" />
+    </linearGradient>
+
+    <!-- Bevel Highlight (Bright Rim Light) -->
+    <linearGradient id="goldHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF5D1" />
+      <stop offset="50%" stop-color="#D4AF37" />
+      <stop offset="100%" stop-color="#8F6A15" />
+    </linearGradient>
+
+    <!-- Deep Shadow Gold for Depth & Underside -->
+    <linearGradient id="goldShadow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9C771C" />
+      <stop offset="60%" stop-color="#6E500D" />
+      <stop offset="100%" stop-color="#4A3405" />
+    </linearGradient>
+
+    <!-- Subtle Drop Shadow Filter for Clean Optical Elevation -->
+    <filter id="softShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#010805" flood-opacity="0.75" />
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+
+    <!-- Inner Stroke Glow Filter -->
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- SQUIRCLE APP CONTAINER -->
+  <rect width="512" height="512" rx="112" fill="url(#emeraldBg)" />
+  <rect width="510" height="510" x="1" y="1" rx="111" fill="none" stroke="rgba(212, 175, 55, 0.15)" stroke-width="1.5" />
+
+  <!-- MAIN EMBLEM GROUP WITH SUBTLE ELEVATION -->
+  <g filter="url(#softShadow)">
+
+    <!-- 1. RUB EL HIZB (SACRED 8-POINTED STAR) -->
+    <!-- Star Inner Field Fill -->
+    <polygon points="256.00,58.00 301.11,103.11 364.89,103.11 364.89,166.89 410.00,212.00 364.89,257.11 364.89,320.89 301.11,320.89 256.00,366.00 210.89,320.89 147.11,320.89 147.11,257.11 102.00,212.00 147.11,166.89 147.11,103.11 210.89,103.11" fill="url(#starInnerGlow)" />
+
+    <!-- Outer Star Rim -->
+    <polygon points="256.00,58.00 301.11,103.11 364.89,103.11 364.89,166.89 410.00,212.00 364.89,257.11 364.89,320.89 301.11,320.89 256.00,366.00 210.89,320.89 147.11,320.89 147.11,257.11 102.00,212.00 147.11,166.89 147.11,103.11 210.89,103.11" fill="none" stroke="url(#goldMetallic)" stroke-width="6.5" stroke-linejoin="miter" stroke-miterlimit="8" />
+
+    <!-- Inner Recessed Star Track -->
+    <polygon points="256.00,70.00 297.59,111.59 356.41,111.59 356.41,170.41 398.00,212.00 356.41,253.59 356.41,312.41 297.59,312.41 256.00,354.00 214.41,312.41 155.59,312.41 155.59,253.59 114.00,212.00 155.59,170.41 155.59,111.59 214.41,111.59" fill="none" stroke="url(#goldShadow)" stroke-width="1.8" stroke-linejoin="miter" stroke-miterlimit="8" opacity="0.8" />
+    <polygon points="256.00,78.00 295.25,117.25 350.75,117.25 350.75,172.75 390.00,212.00 350.75,251.25 350.75,306.75 295.25,306.75 256.00,346.00 216.75,306.75 161.25,306.75 161.25,251.25 122.00,212.00 161.25,172.75 161.25,117.25 216.75,117.25" fill="none" stroke="url(#goldHighlight)" stroke-width="1.2" stroke-linejoin="miter" stroke-miterlimit="8" opacity="0.55" />
+
+    <!-- 2. OPEN MUSHAF (PAGES OF SACRED KNOWLEDGE) -->
+    <!-- Right Page (Outer Boundary) -->
+    <path d="M 256,276 
+             C 285,274 316,268 338,252 
+             C 344,228 348,198 344,170 
+             C 318,172 288,178 266,192 
+             Z" 
+          fill="none" stroke="url(#goldMetallic)" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round" />
+
+    <!-- Right Page (Layered Turning Leaf Inside) -->
+    <path d="M 270,202 
+             C 292,192 318,188 334,188 
+             C 338,208 336,232 328,244 
+             C 308,256 284,260 268,262" 
+          fill="none" stroke="url(#goldMetallic)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" opacity="0.9" />
+
+    <!-- Lower Book Spine Base Notch -->
+    <path d="M 238,284 
+             C 248,288 253,293 256,295 
+             C 259,293 264,288 274,284" 
+          fill="none" stroke="url(#goldHighlight)" stroke-width="4" stroke-linecap="round" />
+
+    <!-- 3. THE CALLIGRAPHIC 'HAA' (هـ) RIBBON OF HIDAYAH -->
+    <!-- Fluid Arabic Calligraphic Haa intertwined with the Book -->
+    <!-- Outer Sweep of Haa (Left Page Wing & Ascender) -->
+    <path d="M 244,130 
+             C 246,144 238,158 226,172 
+             C 206,196 186,216 172,238 
+             C 162,254 166,270 182,274 
+             C 204,280 230,272 256,258 
+             C 252,246 244,232 238,220
+             C 220,186 210,166 226,146 
+             C 234,136 240,131 244,130 Z" 
+          fill="url(#goldMetallic)" stroke="url(#goldHighlight)" stroke-width="1.2" stroke-linejoin="round" />
+
+    <!-- Inner Loop / Eye of the 'Haa' (Arabic 'Ayn / Knot) -->
+    <path d="M 226,172 
+             C 242,160 262,170 260,192 
+             C 258,212 238,224 220,214 
+             C 208,206 212,184 226,172 Z" 
+          fill="#062218" stroke="url(#goldMetallic)" stroke-width="3.5" stroke-linejoin="round" />
+
+    <!-- Inner Calligraphic Ribbon Highlight Accent -->
+    <path d="M 228,178 
+             C 240,170 252,176 252,192 
+             C 252,204 238,212 226,206" 
+          fill="none" stroke="url(#goldHighlight)" stroke-width="2" stroke-linecap="round" />
+
+    <!-- Left Page Outer Spine Swirl -->
+    <path d="M 182,274 
+             C 170,268 158,252 152,236 
+             C 148,222 152,208 162,198 
+             C 164,196 168,194 172,196" 
+          fill="none" stroke="url(#goldMetallic)" stroke-width="3" stroke-linecap="round" />
+  </g>
+
+  <!-- 4. REFINED BRAND TYPOGRAPHY LOCKUP -->
+  <g text-anchor="middle">
+    <!-- Primary Brand Name -->
+    <text x="256" y="426" 
+          font-family="'Playfair Display', 'Cinzel', 'Georgia', 'Inter', -apple-system, sans-serif" 
+          font-size="34" 
+          font-weight="700" 
+          letter-spacing="9" 
+          fill="url(#goldMetallic)"
+          filter="url(#subtleGlow)">HIDAYAH AI</text>
+
+    <!-- Secondary Scholarly Subtitle -->
+    <text x="256" y="456" 
+          font-family="'Inter', -apple-system, 'SF Pro Display', sans-serif" 
+          font-size="10.5" 
+          font-weight="600" 
+          letter-spacing="5.5" 
+          fill="#97B8A6">ISLAMIC RESEARCH PLATFORM</text>
+  </g>
+</svg>
