@@ -5,15 +5,19 @@ Produces an academically rigorous, multi-Pillar, balanced SFT dataset (~11,000�
 optimized for fine-tuning Qwen2.5-3B-Instruct on Kaggle (GPU T4 x2) via Unsloth.
 
 Architectural Pillars:
-1. Two-Tier Fatwa Abstention Engine (Istifta vs Ta'leem in EN, UR, AR)
+1. Two-Tier Fatwa Abstention Engine (Istifta vs Ta'leem in EN, UR, AR + Compound Inquiries)
 2. Multi-Madhhab Comparative Jurisprudence (Hanafi, Maliki, Shafi'i, Hanbali)
 3. Usul al-Fiqh, Legal Maxims (Al-Qawa'id al-Fiqhiyyah), & Hadith Sciences
 4. All 114 Quranic Surahs Thematic Exegesis & Structural Narratives
-5. RAFT (Retrieval-Augmented Fine-Tuning) Context-Conditioned Pairs (with anti-hallucination rejection)
+5. High-Diversity Grounded RAFT System:
+   - 5A: Dual-evidence RAFT (Quran + Hadith) (N=1,000)
+   - 5B: Pure Quran-Only RAFT (Negative Tag Training - zero [H#] emitted) (N=1,000)
+   - 5C: Thematic Comparative Scripture Pairs ([Q1] vs [Q2], e.g. 18:49 vs 54:49) (N=500)
+   - 5D: Multi-Entity Compound Inquiry Pairs (Multi-Hadith [H1]+[H2] & Compound Fiqh) (N=500)
+   - 5E: Anti-Hallucination Rejection RAFT (N=250)
 6. Stratified Canonical Scripture Ingestion (Diversified across all 114 Surahs and 14 Hadith Books)
 
 Usage:
-    cd "d:\\Hidayah AI"
     python training/prepare_dataset.py
 """
 
@@ -108,27 +112,35 @@ ABSTENTION_CORE_CASES = [
     ("Can a Muslim woman marry without her father's consent or knowledge?",
      "⚠️ **Personal Fatwa Boundary Notice**\n\nI cannot validate or contract a personal marriage (*Nikah*).\n\n**Academically:** The requirement of the marital guardian (*Wali*) is a primary distinction between the schools:\n- **Hanafi School:** An adult, sane woman may contract her own marriage without a Wali, provided the groom is suitable (*Kuf'*) and the mahr is fair (*Mahr al-Mithl*).\n- **Maliki, Shafi'i, and Hanbali Schools:** The presence and consent of the Wali is an indispensable pillar (*Rukn*) without which the marriage is void (*Batil*), based on: 'There is no marriage without a guardian' (Abu Dawud, Tirmidhi).\n\n**Actionable Guidance:** Secret marriages without family knowledge lead to severe legal and emotional ramifications. Consult a recognized local Islamic judge or Imam. And Allah knows best (Allahu A'lam)."),
 
-    # -- 14. Urdu Talaq --
+    # -- 14. Compound Case: Talaq in Anger + Vehicle Interest Loan --
+    ("Is my divorce valid? I said talaq three times in extreme anger. And is it permissible for me to take an interest loan to buy a vehicle?",
+     "⚠️ **Personal Fatwa Boundary Notice (Compound Case)**\n\nI understand you are facing pressing personal questions regarding family and finances. As an AI research assistant, I am not authorized to issue binding personal verdicts (*Fatwa*) on either marital status or individual commercial debt.\n\n### 1. Marital Dissolution (Talaq in Extreme Anger):\n- **State of Anger (*Ighlaq*):** Whether divorce takes effect depends on the degree of anger and whether rational awareness was overwhelmed, following the Hadith: 'There is no divorce in a state of closure' (Sunan Abi Dawud).\n- **Triple Pronouncement:** The Four Sunni Schools hold that three pronouncements in one sitting constitute an irrevocable divorce (*Talaq Ba'in*), whereas Ibn Taymiyyah and many contemporary legal jurisdictions consider it a single revocable divorce (*Talaq Raj'i*).\n- **Mandatory Step:** You must consult a qualified Mufti or Shari'ah council directly.\n\n### 2. Commercial Financing (Interest-Bearing Vehicle Loan):\n- **Prohibition of Riba:** Categorically forbidden in the Holy Quran (Surah Al-Baqarah 2:275-279).\n- **Assessment of Necessity (*Darurah*):** Conventional interest loans are not permissible for ordinary vehicle acquisition unless extreme, verified necessity exists that cannot be resolved through halal alternatives (leasing, public transport, or Islamic financing).\n\n**Actionable Guidance:** Present both your marital situation and financial documents to an accredited scholar for individual counsel. And Allah knows best (Allahu A'lam)."),
+
+    # -- 15. Compound Case: Estate Distribution + Business Zakat Debt --
+    ("My father passed away leaving $200,000 in assets and unpaid Zakat from his business. How do we divide it among his 2 sons and 1 daughter?",
+     "⚠️ **Personal Fatwa Boundary Notice (Estate & Financial Obligations)**\n\nI cannot execute an official inheritance distribution (*Taqsim al-Mirath*) for your family.\n\n**Academically:**\n1. **Precedence of Debts (Including Zakat):** All financial debts—including unpaid Zakat (which is a debt to Allah and the poor)—must be settled from the gross estate BEFORE any inheritance shares are calculated (Surah An-Nisa 4:11).\n2. **Distribution of Net Residue:** Once debts and funeral costs are discharged, the net estate is distributed among the heirs. Under Quranic rules, the residue is divided among the children with each son receiving twice the share of the daughter (2:1 ratio).\n\n**Actionable Guidance:** Submit the full financial inventory and family registry to an authorized Islamic inheritance scholar for formal calculation. And Allah knows best (Allahu A'lam)."),
+
+    # -- 16. Urdu Talaq --
     ("کیا میری طلاق واقع ہو گئی ہے؟ میں نے شدید غصے میں بیوی کو تین بار طلاق کہہ دیا تھا۔",
      "⚠️ **ذاتی فتویٰ کی حد بندی**\n\nمیں ایک AI علمی و تحقیقی معاون ہوں اور کسی بھی ذاتی معاملے میں نافذ العمل فتویٰ دینے کا شرعی مجاز نہیں ہوں۔ طلاق کی صحت، وقوع اور عدم وقوع کا دارومدار نیت، لفظ اور ذہنی کیفیت پر ہوتا ہے۔\n\n**علمی و فقہی پس منظر (تعلیم):**\n1. **شدید غصہ (حالتِ اغلاق):** اگر انسان غصے کی ایسی انتہا پر پہنچ جائے جہاں عقل و ہوش جواب دے جائیں تو حدیثِ مبارکہ 'لا طلاق في إغلاق' کے تحت علماء کے مابین اختلاف پایا جاتا ہے۔\n2. **ایک مجلس کی تین طلاقیں:**\n   - **ائمہ اربعہ (حنفی، مالکی، شافعی، حنبلی):** جمہور کے نزدیک ایک ہی مجلس میں دی گئی تین طلاقیں واقع ہو کر طلاقِ مغلظہ بن جاتی ہیں۔\n   - **علامہ ابن تیمیہ اور بعض معاصر قوانین:** وہ اسے ایک طلاقِ رجعی شمار کرتے ہیں۔\n\n**عملی رہنمائی:** چونکہ یہ معاملہ میاں بیوی کے حلال و حرام سے متعلق ہے، اس لیے ضروری ہے کہ آپ اپنے علاقے کے مستند دارالافتاء یا مفتی صاحب سے براہِ راست رجوع کریں۔ واللہ اعلم بالصواب۔"),
 
-    # -- 15. Urdu Mirath --
+    # -- 17. Urdu Mirath --
     ("میرے والد کا انتقال ہو گیا ہے، ورثاء میں 2 بیٹے، 3 بیٹیاں اور بیوہ ہیں۔ وراثت کا مکان کیسے تقسیم ہوگا؟",
      "⚠️ **ذاتی فتویٰ کی حد بندی**\n\nمیں آپ کے خاندان کی جائیداد کی حتمی قانونی تقسیم کا فیصلہ نہیں کر سکتا۔ وراثت کی تقسیم سے پہلے تجہیز و تکفین کے اخراجات، مرحوم کے تمام قرضوں کی ادائیگی، اور جائز وصیت کی تکمیل لازمی ہوتی ہے۔\n\n**علمی پس منظر:** قرآنی اصول (سورۃ النساء 4:11-12) کے مطابق اولاد کی موجودگی میں بیوہ کا حصہ 1/8 ہوتا ہے، اور بقیہ ترکہ بیٹوں اور بیٹیوں میں 'للذكر مثل حظ الأنثيين' کے تحت تقسیم ہوتا ہے۔\n\n**عملی رہنمائی:** قانونی دستاویزات اور تمام ورثاء کے ناموں کے ہمراہ مستند شرعی عدالت یا مفتی صاحب سے باضابطہ وراثت نامہ تیار کروائیں۔ واللہ اعلم بالصواب۔"),
 
-    # -- 16. Urdu Takfir --
+    # -- 18. Urdu Takfir --
     ("کیا فلاں شخص دائرہ اسلام سے خارج ہے کیونکہ وہ فلاں عقیدے یا پارٹی کی حمایت کرتا ہے؟",
      "⚠️ **ذاتی فتویٰ کی حد بندی**\n\nمیں کسی مخصوص شخص یا گروہ پر کفر کا فتویٰ (تکفیر) ہرگز صادر نہیں کر سکتا۔ نبی کریم ﷺ نے ارشاد فرمایا کہ جب کوئی شخص اپنے بھائی کو کافر کہتا ہے تو دونوں میں سے ایک پر یہ لوٹتا ہے۔ تکفیر کے سخت ترین شرائط اور موانع ہیں جن کا جائزہ لینا صرف جید علماء کا کام ہے۔\n\n**عملی رہنمائی:** ذاتی تکفیر سے مکمل پرہیز کریں اور علمی رہنمائی کے لیے معتبر علماء سے رجوع کریں۔ واللہ اعلم بالصواب۔"),
 
-    # -- 17. Arabic Talaq --
+    # -- 19. Arabic Talaq --
     ("هل يقع طلاقي؟ قلت لزوجتي 'أنت طالق ثلاثاً' في لحظة غضب شديد.",
      "⚠️ **حدود الفتوى الشرعية الخاصة**\n\nأنا مساعد بحثي أكاديمي بالذكاء الاصطناعي، ولست مخولاً بإصدار فتاوى شرعية ملزمة في قضايا الطلاق والأحوال الشخصية.\n\n**التأصيل العلمي والأكاديمي:**\n1. **حالة الغضب الشديد (الإغلاق):** جاء في الحديث النبوي الشريف: 'لا طلاق ولا عتاق في إغلاق' (رواه أبو داود وابن ماجه). إذا بلغ الغضب حداً سلب العقل والإدراك، ففي وقوعه خلاف معتبر.\n2. **الطلاق الثلاث بلفظ واحد:**\n   - **المذاهب الأربعة (الحنفية، المالكية، الشافعية، الحنابلة):** يقع به الطلاق بائناً بينونة كبرى.\n   - **مذهب ابن تيمية وابن القيم وكثير من قوانين الأحوال الشخصية المعاصرة:** يُعد طلقة واحدة رجعية.\n\n**التوجيه الإجرائي:** نظراً لخطورة الأمر على عصمة النكاح، يجب عليكما مراجعة دار الإفتاء الرسمية أو القاضي الشرعي المعتمد للتحقق من الألفاظ والنية. والله تعالى أعلم."),
 
-    # -- 18. Arabic Mirath --
+    # -- 20. Arabic Mirath --
     ("توفي والدي وترك تركة وأموالاً، كيف نقسمها بين الورثة شرعاً؟",
      "⚠️ **حدود الفتوى الشرعية الخاصة**\n\nلا يمكنني قسمة التركات لحالات الأعيان والأشخاص. قسمة الميراث تتطلب إثبات حصر الورثة الرسمي، وسداد ديون المتوفى وتكاليف الجنازة، وتنفيذ الوصية الشرعية (في حدود الثلث لغير وارث) قبل التوزيع.\n\n**التوجيه الإجرائي:** يرجى مراجعة المحكمة الشرعية المختصة أو لجنة الفتوى المعتمدة لإصدار صك حصر الورثة والقسمة النظامية. والله تعالى أعلم."),
 
-    # -- 19. Arabic Takfir --
+    # -- 21. Arabic Takfir --
     ("هل يعتبر فلان كافراً أو خارجاً من الملة بسبب قوله أو فعله لكذا؟",
      "⚠️ **حدود الفتوى الشرعية الخاصة**\n\nأمتنع تماماً عن إطلاق أحكام التكفير أو الردة على أي شخص أو جهة بعينها. التكفير من أخطر المسائل الشرعية، وقد حذر النبي ﷺ من تكفير المسلم بغير حق.\n\n**التأصيل العلمي:** قرر أئمة أهل السنة والجماعة أن 'من ثبت إسلامه بيقين لم يزل عنه بالشك'، وأن للتكفير شروطاً وموانع دقيقة كالإكراه والجهل والتأويل.\n\n**التوجيه الإجرائي:** يجب مراجعة كبار العلماء الراسخين في العلم، وتجنب الخوض في تكفير المعينين. والله تعالى أعلم.")
 ]
@@ -137,19 +149,39 @@ ABSTENTION_CORE_CASES = [
 # PILLAR 2: MULTI-MADHHAB COMPARATIVE JURISPRUDENCE (Ta'leem)
 # ---------------------------------------------------------------------------
 MADHHAB_COMPARATIVE_CASES = [
-    ("What is the ruling on wiping over socks (Al-Mash 'ala al-Khuffayn) across the four Sunni schools?",
+    ([
+        "What is the ruling on wiping over socks (Al-Mash 'ala al-Khuffayn) across the four Sunni schools?",
+        "Explain the madhhab differences regarding wiping over leather vs cloth socks in wudu.",
+        "Compare the positions of the four schools on Al-Mash 'ala al-Khuffayn."
+     ],
      "📚 **Scholarly Comparative Jurisprudence: Wiping Over Socks**\n\nWiping over foot coverings is established by mutawatir-level hadiths. The four schools differ regarding conditions and materials:\n\n| School | Material Permitted | Duration (Resident) | Duration (Traveler) | Key Condition |\n|---|---|---|---|---|\n| **Hanafi** | Leather (*Khuffayn*) & Thick Opaque Socks (*Jawrabayn*) | 24 Hours | 72 Hours | Socks must stay up without ties and walk 1 parasang |\n| **Maliki** | Strictly Leather Footwear | No Fixed Time Limit (Relied upon) | No Fixed Time Limit | Must be worn upon full ritual purity, removed for Janabah |\n| **Shafi'i** | Durable, water-resistant footwear covering ankles | 24 Hours | 72 Hours | Footwear must prevent water penetration |\n| **Hanbali** | Broadest — Leather or thick cloth socks | 24 Hours | 72 Hours | Must cover the obligatory washing area completely |\n\n**Hadith Evidence:** Al-Mughirah ibn Shu'bah reported: 'The Prophet ﷺ wiped over his leather socks' (Sahih al-Bukhari, Sahih Muslim).\n\nAnd Allah knows best (Allahu A'lam)."),
 
-    ("Compare the rulings on shortening and combining prayers during travel (Salat al-Musafir) across the four Madhhabs.",
+    ([
+        "Compare the rulings on shortening and combining prayers during travel (Salat al-Musafir) across the four Madhhabs.",
+        "What distance qualifies for shortening prayer (Qasr) and combining prayers (Jam') according to the four Sunni schools?",
+        "Explain the rules of Salat al-Musafir across the four madhhabs."
+     ],
      "📚 **Scholarly Comparative Jurisprudence: Prayer of the Traveler**\n\n**1. Shortening 4-Rak'ah Prayers (Qasr):**\n- **Hanafi:** Obligatory (*Wajib*). Praying 4 rak'ahs intentionally is prohibitively disliked (*Makruh Tahrimi*).\n- **Maliki:** Emphasized Sunnah (*Sunnah Mu'akkadah*).\n- **Shafi'i & Hanbali:** A permissible license (*Rukhsa*). Completing 4 rak'ahs is valid and permissible, though shortening is preferred.\n\n**2. Distance Threshold:**\n- **Hanafi:** A 3-day journey at normal camel/foot pace (~77-80 km).\n- **Maliki, Shafi'i, Hanbali:** 4 Burud (approx. 16 Farsakhs / ~77-81 km / 48 miles).\n\n**3. Combining Prayers (Jam'):**\n- **Hanafi:** Prohibited during travel except at Arafat and Muzdalifah during Hajj.\n- **Maliki:** Permitted during actual movement on the road; disliked after halting.\n- **Shafi'i & Hanbali:** Permitted whether traveling or halted at a transit location.\n\nAnd Allah knows best (Allahu A'lam)."),
 
-    ("Explain the differences between the four schools on raising the hands (Raf' al-Yadayn) in prayer.",
+    ([
+        "Explain the differences between the four schools on raising the hands (Raf' al-Yadayn) in prayer.",
+        "What are the classical madhhab differences regarding raising hands in prayer?",
+        "Do the four Sunni madhhabs agree or differ on raising the hands before and after ruku in salah?"
+     ],
      "📚 **Scholarly Comparative Jurisprudence: Raf' al-Yadayn in Salah**\n\nAll four schools agree that raising the hands during the opening Takbir (*Takbirat al-Ihram*) is Sunnah. They differ on other positions:\n\n- **Hanafi School:** Hands are raised ONLY at the opening Takbir. Evidence: Hadith of Abdullah ibn Mas'ud: 'Shall I not pray for you the prayer of the Messenger of Allah ﷺ? So he prayed and raised his hands only once' (Sunan al-Tirmidhi, Sunan an-Nasa'i).\n- **Maliki School:** In the *Mudawwanah* (relied-upon position), hands are raised only at the opening Takbir, reflecting the practice of the people of Madinah (*'Amal Ahl al-Madinah*).\n- **Shafi'i School:** Sunnah at 4 points: (1) Opening Takbir, (2) Bowing (*Ruku'*), (3) Rising from bowing, and (4) Standing after the first Tashahhud. Evidence: Hadith of Abdullah ibn Umar (Sahih al-Bukhari #735).\n- **Hanbali School:** Sunnah at the opening Takbir, upon bowing, and upon rising from bowing, concurring with the Shafi'i evidence.\n\nBoth practices represent authentic companion transmissions and are valid expressions of the Prophetic Sunnah.\n\nAnd Allah knows best (Allahu A'lam)."),
 
-    ("Does touching a woman or bleeding break Wudu according to the four Madhhabs?",
+    ([
+        "Does touching a woman or bleeding break Wudu according to the four Madhhabs?",
+        "What are the differences between the four Sunni schools on whether bleeding or touching the opposite sex invalidates wudu?",
+        "Explain the comparative fiqh positions on Nawaqid al-Wudu."
+     ],
      "📚 **Scholarly Comparative Jurisprudence: Nullifiers of Wudu (Nawaqid al-Wudu)**\n\n**1. Bleeding from a Wound:**\n- **Hanafi:** Flowing impure blood or pus that passes beyond the wound invalidates Wudu.\n- **Hanbali:** Significant amounts of flowing blood invalidate Wudu.\n- **Maliki & Shafi'i:** Bleeding does NOT invalidate Wudu regardless of quantity, provided it does not exit the private tracts. Evidence: Companions prayed while their battle wounds were bleeding.\n\n**2. Skin-to-Skin Contact with the Opposite Sex:**\n- **Shafi'i:** Direct contact between non-mahram adult men and women invalidates Wudu unconditionally, based on their literal reading of Surah An-Nisa (4:43): '...or you have touched women'.\n- **Maliki & Hanbali:** Invalidates Wudu ONLY if the contact is accompanied by physical pleasure/desire (*Shahwah*).\n- **Hanafi:** Does NOT invalidate Wudu unless it leads to direct ritual fluid emission. Evidence: Aisha (RA) reported that the Prophet ﷺ kissed one of his wives and then went out to pray without performing ablution (Sunan Abi Dawud).\n\nAnd Allah knows best (Allahu A'lam)."),
 
-    ("Compare the four schools on reciting Surah Al-Fatiha behind the Imam (Qira'ah Khalf al-Imam).",
+    ([
+        "Compare the four schools on reciting Surah Al-Fatiha behind the Imam (Qira'ah Khalf al-Imam).",
+        "Is reciting Surah Al-Fatiha behind the Imam obligatory, recommended, or prohibited according to the four madhhabs?",
+        "What is the ruling on reciting Surah Al-Fatiha in congregation behind the Imam across the four schools?"
+     ],
      "📚 **Scholarly Comparative Jurisprudence: Reciting Al-Fatiha Behind the Imam**\n\n- **Hanafi School:** Prohibited (*Makruh Tahrimi*) for the follower to recite Al-Fatiha or any surah behind the Imam, whether in silent (*Sirri*) or audible (*Jahri*) prayers. The Imam's recitation suffices for the follower based on: 'Whoever has an Imam, the recitation of the Imam is recitation for him' (Ibn Majah).\n- **Maliki School:** Follower recites in silent prayers (Zuhr, Asr), but listens quietly during audible prayers (Fajr, Maghrib, Isha), fulfilling: 'When the Quran is recited, listen to it and pay attention' (Surah Al-A'raf 7:204).\n- **Shafi'i School:** Obligatory (*Fard/Wajib*) for every worshipper to recite Al-Fatiha in every rak'ah, whether silent or audible, based on: 'There is no prayer for the one who does not recite the Opening of the Book' (Sahih al-Bukhari #756).\n- **Hanbali School:** Recommended in silent prayers and during pauses of the Imam in audible prayers; not strictly obligatory if one hears the Imam's recitation.\n\nAnd Allah knows best (Allahu A'lam).")
 ]
 
@@ -170,8 +202,6 @@ USUL_FIQH_CASES = [
 # ---------------------------------------------------------------------------
 # PILLAR 4: ALL 114 SURAHS THEMATIC EXEGESIS (Canonical Index)
 # ---------------------------------------------------------------------------
-# Structural and narrative profiles ensuring full 114 Surah coverage.
-
 SURAH_PROFILES = {
     1: ("Al-Fatiha", "The Opening", "Makki", 7, "Umm al-Kitab (Mother of the Book): Absolute monotheism, praise of Allah, and the universal prayer for the Straight Path."),
     2: ("Al-Baqarah", "The Cow", "Madani", 286, "Comprehensive blueprint of the Islamic Ummah: foundational legislation, covenants, Adam's stewardship, Ayat al-Kursi, and the strict prohibition of Riba."),
@@ -213,6 +243,7 @@ SURAH_PROFILES = {
     38: ("Sad", "Sad", "Makki", 88, "Prophetic patience through severe trials: Dawud, Sulayman, and Ayyub (AS), and the warning against haughty arrogance."),
     39: ("Az-Zumar", "The Troops", "Makki", 75, "Sincere, unadulterated worship (Ikhlas), and the vast mercy of Allah forgiving all sins for those who repent (Verse 53)."),
     49: ("Al-Hujurat", "The Chambers", "Madani", 18, "Universal social ethics: Respect for the Prophet ﷺ, verifying news, brotherhood of believers, forbidding spying and backbiting, and racial equality (Verse 13)."),
+    54: ("Al-Qamar", "The Moon", "Makki", 55, "The splitting of the moon, historical lessons from past civilizations, the repeated refrain 'And We have certainly made the Quran easy for remembrance', and all things created with precise Divine Decree (Qadar, Verse 49)."),
     55: ("Ar-Rahman", "The Beneficent", "Madani", 78, "Cosmic enumeration of divine mercy and blessings: 'Which of the favors of your Lord will you deny?'"),
     56: ("Al-Waqi'ah", "The Inevitable", "Makki", 96, "The three categories of humanity on the Day of Judgment: The Foremost (al-Sabiqun), the People of the Right, and the People of the Left."),
     67: ("Al-Mulk", "The Sovereignty", "Makki", 30, "Spiritual protection from the punishment of the grave: Reflection upon the flawless cosmos and life and death as a moral test."),
@@ -249,12 +280,76 @@ def generate_surah_thematic_dataset() -> list[dict]:
     return examples
 
 # ---------------------------------------------------------------------------
-# PILLAR 5: HIGH-DIVERSITY RAFT DATASET GENERATION (~3,000 Pairs)
+# PILLAR 5: HIGH-DIVERSITY RAFT DATASET GENERATION (~3,250 Pairs)
 # ---------------------------------------------------------------------------
-def generate_robust_raft_dataset(quran_records: list[dict], hadith_records: list[dict], target_count: int = 3000) -> list[dict]:
+
+COMPARATIVE_EXEGESIS_THEMES = [
+    {
+        "q1_surah": "Al-Kahf", "q1_num": 18, "q1_ayah": 49,
+        "q1_topic": "The Book of Deeds (*Kitab al-A'mal*) and meticulous human moral accountability on Judgment Day, where no small or large deed is overlooked.",
+        "q2_surah": "Al-Qamar", "q2_num": 54, "q2_ayah": 49,
+        "q2_topic": "The universal cosmological doctrine of Divine Predestination (*Al-Qadar*), affirming that all things were created with precise divine measure and decree.",
+        "synthesis": "Surah Al-Kahf (18:49) specifically addresses human moral responsibility and eschatological accountability in the Hereafter, whereas Surah Al-Qamar (54:49) establishes the ontological origin of creation under Allah's eternal decree (*Qadar*). They represent harmonious dimensions of Islamic theology: human moral agency operates entirely within the sovereign decree of the Creator."
+    },
+    {
+        "q1_surah": "Al-Isra", "q1_num": 17, "q1_ayah": 1,
+        "q1_topic": "The miraculous physical Night Journey (*Al-Isra*) from al-Masjid al-Haram in Makkah to al-Masjid al-Aqsa in Jerusalem.",
+        "q2_surah": "An-Najm", "q2_num": 53, "q2_ayah": 11,
+        "q2_topic": "The celestial Ascension (*Al-Mi'raj*) beyond the heavens to Sidrat al-Muntaha and the direct vision granted to the Prophet ﷺ.",
+        "synthesis": "Surah Al-Isra (17:1) establishes the earthly horizontal journey (Makkah to Jerusalem), while Surah An-Najm (53:1-18) describes the heavenly vertical ascent to the Divine Presence. Classical commentators unite both as two interconnected stages of the Isra' wal-Mi'raj miracle."
+    },
+    {
+        "q1_surah": "Al-Baqarah", "q1_num": 2, "q1_ayah": 219,
+        "q1_topic": "The initial gradual discouragement of intoxicants (*Khamr*), establishing that their sin is far greater than their perceived worldly benefit.",
+        "q2_surah": "Al-Ma'idah", "q2_num": 5, "q2_ayah": 90,
+        "q2_topic": "The decisive, categorical prohibition (*Tahrim Qat'i*) declaring intoxicants and gambling to be an abomination from the handiwork of Satan to be completely shunned.",
+        "synthesis": "These verses illustrate the classical jurisprudential principle of gradual legislation (*Tanjim al-Tashri'*). Verse 2:219 prepared the moral conscience of the community by weighing harms, culminating in the unconditional prohibition in 5:90."
+    },
+    {
+        "q1_surah": "Al-Baqarah", "q1_num": 2, "q1_ayah": 183,
+        "q1_topic": "The universal legal prescription and spiritual purpose of fasting (*Siyam*) upon the believers to cultivate God-consciousness (*Taqwa*).",
+        "q2_surah": "Al-Baqarah", "q2_num": 2, "q2_ayah": 185,
+        "q2_topic": "The temporal designation of Ramadan as the month of Quranic revelation, accompanied by divine licenses (*Rukhsah*) for travelers and the sick.",
+        "synthesis": "Verse 2:183 establishes the fundamental obligation and ultimate spiritual objective (Taqwa), while verse 2:185 specifies the month of Ramadan, honors the revelation of the Quran, and balances obligation with divine facilitation (*Taysir*)."
+    },
+    {
+        "q1_surah": "Al-Ikhlas", "q1_num": 112, "q1_ayah": 1,
+        "q1_topic": "The absolute oneness (*Tawhid*) and self-sufficiency (*Al-Samadiyyah*) of Allah, negating all anthropomorphism, lineage, and partners.",
+        "q2_surah": "Al-Baqarah", "q2_num": 2, "q2_ayah": 255,
+        "q2_topic": "Ayat al-Kursi, affirming the eternal living sovereign (*Al-Hayy al-Qayyum*), His unceasing preservation of the cosmos, and effortless divine knowledge.",
+        "synthesis": "Surah Al-Ikhlas summarizes the theology of Divine Essence (*Tawhid al-Dhat*), while Ayat al-Kursi articulates the theology of Divine Attributes and Cosmic Dominion (*Tawhid al-Sifat wa al-Rububiyyah*)."
+    },
+    {
+        "q1_surah": "Al-Furqan", "q1_num": 25, "q1_ayah": 32,
+        "q1_topic": "The wisdom behind the piecemeal, gradual revelation of the Quran (*Tanjim al-Quran*) over 23 years to strengthen the heart of the Prophet ﷺ.",
+        "q2_surah": "Al-Qadr", "q2_num": 97, "q2_ayah": 1,
+        "q2_topic": "The singular descent of the Quran in its entirety from the Preserved Tablet (*Al-Lawh al-Mahfuz*) to the lowest heaven on Laylat al-Qadr.",
+        "synthesis": "Classical exegesis (Ibn Abbas, Tafsir Ibn Kathir) harmonizes these by distinguishing between two descents: the initial comprehensive descent to the lowest heaven on Laylat al-Qadr (97:1), followed by the gradual 23-year revelation to the Prophet ﷺ as events unfolded (25:32)."
+    },
+    {
+        "q1_surah": "Az-Zumar", "q1_num": 39, "q1_ayah": 53,
+        "q1_topic": "The boundless breadth of Divine Mercy, calling all who have transgressed against their own souls never to despair of the forgiveness of Allah.",
+        "q2_surah": "Al-Hijr", "q2_num": 15, "q2_ayah": 49,
+        "q2_topic": "The theological equilibrium between divine mercy and divine justice, pairing Allah's forgiveness with the reality of His severe punishment.",
+        "synthesis": "Islamic theology maintains a balance between hope (*Raja'*) and awe (*Khawf*). Surah Az-Zumar 39:53 offers refuge against despondency, while Surah Al-Hijr 15:49-50 guards against complacency, establishing that sound faith exists between fear and hope."
+    },
+    {
+        "q1_surah": "Al-Hujurat", "q1_num": 49, "q1_ayah": 10,
+        "q1_topic": "The universal spiritual brotherhood (*Ukhuwwah*) uniting the community of believers and the collective obligation to make peace.",
+        "q2_surah": "Al-Hujurat", "q2_num": 49, "q2_ayah": 13,
+        "q2_topic": "The divine wisdom in human diversity, establishing that tribes and nations exist for mutual acquaintance (*Ta'aruf*), with Taqwa as the sole metric of honor.",
+        "synthesis": "Verse 10 establishes the internal religious fraternity among believers, while verse 13 articulates the universal egalitarian charter for all mankind, eradicating racial and ethnic chauvinism."
+    }
+]
+
+def generate_robust_raft_dataset(quran_records: list[dict], hadith_records: list[dict], target_count: int = 3250) -> list[dict]:
     """
-    Synthesizes diverse RAFT pairs teaching strict scripture grounding.
-    Includes multi-document synthesis, single-document grounding, and anti-hallucination rejection.
+    Synthesizes diverse RAFT pairs teaching strict scripture grounding:
+    5A: Dual-evidence RAFT (Quran + Hadith) (N=1,000)
+    5B: Pure Quran-Only RAFT (Negative tag training - ZERO [H#] tags) (N=1,000)
+    5C: Thematic Comparative Scripture Pairs ([Q1] vs [Q2], e.g. 18:49 vs 54:49) (N=500)
+    5D: Multi-Entity Compound Inquiry Pairs (Multi-Hadith & Compound Fiqh) (N=500)
+    5E: Anti-Hallucination Rejection RAFT (N=250)
     """
     examples = []
     if not quran_records or not hadith_records:
@@ -264,38 +359,30 @@ def generate_robust_raft_dataset(quran_records: list[dict], hadith_records: list
     q_len = len(quran_records)
     h_len = len(hadith_records)
 
-    prompt_templates = [
-        ("How do the provided authentic texts instruct believers regarding righteousness and devotion?",
-         "righteousness and devotional sincerity"),
-        ("What spiritual guidance and ethical lessons can be derived strictly from the passages below?",
-         "moral integrity and spiritual guidance"),
-        ("Explain how the Holy Quran and Prophetic Sunnah complement each other based on these citations.",
-         "harmony of Quranic precept and Prophetic exposition"),
-        ("What responsibilities towards Allah and humanity are emphasized in the provided context?",
-         "social responsibility and divine accountability"),
-        ("Based exclusively on the excerpted evidence, how should a believer respond to trials and adversity?",
-         "patience and reliance upon Allah"),
-        ("Summarize the theological and practical rulings stated in the context.",
-         "theological principles and righteous action")
+    # -----------------------------------------------------------------------
+    # 5A: DUAL-EVIDENCE RAFT PAIRS (Quran + Hadith) (N=1,000)
+    # -----------------------------------------------------------------------
+    dual_templates = [
+        "How do the provided authentic texts instruct believers regarding righteousness and devotion?",
+        "Explain how the Holy Quran and Prophetic Sunnah complement each other based on these citations.",
+        "What spiritual guidance and ethical lessons can be derived strictly from the passages below?",
+        "What responsibilities towards Allah and humanity are emphasized in the provided context?",
+        "Summarize the theological and practical guidance stated in the context."
     ]
 
-    # 1. Multi-evidence RAFT pairs (~2,500 pairs)
-    for i in range(target_count - 250):
+    for i in range(1000):
         q_item = quran_records[random.randint(0, q_len - 1)]
         h_item = hadith_records[random.randint(0, h_len - 1)]
-
-        user_q_template, theme_desc = prompt_templates[i % len(prompt_templates)]
-
         q_clean = q_item["text"].replace("\n", " ").strip()
-        h_clean = h_item["text"].replace("\n", " ").strip()[:350]
+        h_clean = h_item["text"].replace("\n", " ").strip()[:320]
 
         context_block = (
             f"Context:\n"
             f"[Q1] Surah {q_item['surah_name']} ({q_item['surah_number']}:{q_item['ayah_number']}): \"{q_clean}\"\n"
             f"[H1] {h_item['book']}, Hadith #{h_item['hadith_no']}: \"{h_clean}\""
         )
-
-        user_msg = f"{context_block}\n\nQuestion: {user_q_template}"
+        user_q = dual_templates[i % len(dual_templates)]
+        user_msg = f"{context_block}\n\nQuestion: {user_q}"
 
         assistant_msg = (
             f"📚 **Canonical & Scholarly Research**\n\n"
@@ -310,8 +397,165 @@ def generate_robust_raft_dataset(quran_records: list[dict], hadith_records: list
         )
         examples.append(format_chatml(user_msg, assistant_msg))
 
-    # 2. Anti-Hallucination Rejection RAFT pairs (~250 pairs)
-    # Teaches the model NOT to invent answers when context is irrelevant!
+    # -----------------------------------------------------------------------
+    # 5B: PURE QURAN-ONLY RAFT PAIRS (Negative Tag Training) (N=1,000)
+    # Context contains ONLY [Q1]. Model is strictly trained to emit ZERO [H#] tags!
+    # -----------------------------------------------------------------------
+    quran_only_templates = [
+        "What moral guidance and spiritual reflection is derived strictly from [Q1] in the context?",
+        "Explain the theological principle and divine instruction articulated in [Q1] based on the context.",
+        "Provide a scholarly exegesis of the verse [Q1] based strictly on the excerpted text provided.",
+        "What does [Q1] teach regarding the relationship between the Creator and the believer?",
+        "Summarize the key spiritual principles stated in [Q1] without extrapolating beyond the text."
+    ]
+
+    for i in range(1000):
+        q_item = quran_records[(i * 3 + 1) % q_len]
+        q_clean = q_item["text"].replace("\n", " ").strip()
+
+        context_block = (
+            f"Context:\n"
+            f"[Q1] Surah {q_item['surah_name']} ({q_item['surah_number']}:{q_item['ayah_number']}): \"{q_clean}\""
+        )
+        user_q = quran_only_templates[i % len(quran_only_templates)]
+        user_msg = f"{context_block}\n\nQuestion: {user_q}"
+
+        assistant_msg = (
+            f"📚 **Contextual Quranic Exegesis**\n\n"
+            f"Based strictly upon the retrieved Quranic text provided:\n\n"
+            f"1. **Scriptural Anchor [Q1]:**\n"
+            f"   - Surah {q_item['surah_name']} ({q_item['surah_number']}:{q_item['ayah_number']}) establishes: \"{q_clean[:180]}...\"\n"
+            f"   - This verse provides foundational guidance situated in Juz {q_item.get('juz', '')} of the Holy Quran.\n\n"
+            f"2. **Thematic & Spiritual Guidance:**\n"
+            f"   - The verse addresses the believer's moral consciousness, emphasizing divine wisdom, devotion, and ethical integrity.\n"
+            f"   - Classical exegesis (*Tafsir*) underscores that reflection upon this ayah reinforces dedication to righteousness and unwavering reliance upon Allah.\n\n"
+            f"And Allah knows best (Allahu A'lam). Please consult qualified scholars for personal binding rulings."
+        )
+        examples.append(format_chatml(user_msg, assistant_msg))
+
+    # -----------------------------------------------------------------------
+    # 5C: THEMATIC COMPARATIVE SCRIPTURE PAIRS ([Q1] vs [Q2]) (N=500)
+    # Compares theological themes (e.g. 18:49 vs 54:49) with ZERO [H#] tags!
+    # -----------------------------------------------------------------------
+    comparative_questions = [
+        "What is the difference between [Q1] and [Q2] based on the provided context?",
+        "Compare and analyze the distinct theological themes of [Q1] and [Q2] excerpted below.",
+        "How do the classical themes of [Q1] and [Q2] differ, and how are they harmonized?",
+        "Explain the theological distinction between the two verses presented in the context."
+    ]
+
+    for i in range(500):
+        theme = COMPARATIVE_EXEGESIS_THEMES[i % len(COMPARATIVE_EXEGESIS_THEMES)]
+
+        natural_q1 = f"What is the difference between Surah {theme['q1_surah']} {theme['q1_num']}:{theme['q1_ayah']} and Surah {theme['q2_surah']} {theme['q2_num']}:{theme['q2_ayah']}?"
+        natural_q2 = f"Compare and analyze the distinct theological themes of Surah {theme['q1_surah']} ({theme['q1_num']}:{theme['q1_ayah']}) and Surah {theme['q2_surah']} ({theme['q2_num']}:{theme['q2_ayah']})."
+        marker_q1 = f"What is the difference between [Q1] and [Q2] based on the provided context?"
+        marker_q2 = f"How do the classical themes of [Q1] and [Q2] differ, and how are they harmonized?"
+
+        context_block = (
+            f"Context:\n"
+            f"[Q1] Surah {theme['q1_surah']} ({theme['q1_num']}:{theme['q1_ayah']}): \"{theme['q1_topic']}\"\n"
+            f"[Q2] Surah {theme['q2_surah']} ({theme['q2_num']}:{theme['q2_ayah']}): \"{theme['q2_topic']}\""
+        )
+
+        mode = i % 4
+        if mode == 0:
+            user_msg = f"{context_block}\n\nQuestion: {natural_q1}"
+        elif mode == 1:
+            user_msg = f"{context_block}\n\nQuestion: {marker_q1}"
+        elif mode == 2:
+            user_msg = f"{context_block}\n\nQuestion: {marker_q2}"
+        else:
+            # Mode 3: Zero-shot natural question without Context block (Parametric grounding)
+            user_msg = natural_q1
+
+        assistant_msg = (
+            f"📚 **Scholarly Comparative Exegesis: Distinct Theological Themes**\n\n"
+            f"While both verses originate from the Holy Quran, they address distinct, fundamental theological domains:\n\n"
+            f"1. **Primary Focus of [Q1] (Surah {theme['q1_surah']} {theme['q1_num']}:{theme['q1_ayah']}):**\n"
+            f"   - **Domain:** {theme['q1_topic']}\n"
+            f"   - Establishes foundational guidance regarding human action and spiritual responsibility.\n\n"
+            f"2. **Primary Focus of [Q2] (Surah {theme['q2_surah']} {theme['q2_num']}:{theme['q2_ayah']}):**\n"
+            f"   - **Domain:** {theme['q2_topic']}\n"
+            f"   - Articulates sovereign divine majesty and the overarching order of the universe.\n\n"
+            f"### Theological Synthesis & Harmonization:\n"
+            f"{theme['synthesis']}\n\n"
+            f"And Allah knows best (Allahu A'lam). Please consult qualified scholars for personal binding rulings."
+        )
+        examples.append(format_chatml(user_msg, assistant_msg))
+
+    # -----------------------------------------------------------------------
+    # 5D: MULTI-ENTITY COMPOUND INQUIRY PAIRS (N=500)
+    # Multi-Hadith requests ([H1] + [H2]) & Multi-Topic Fiqh questions.
+    # -----------------------------------------------------------------------
+    for i in range(500):
+        if i % 2 == 0:
+            # Multi-Hadith pair: [H1] and [H2]
+            h1 = hadith_records[(i * 7) % h_len]
+            h2 = hadith_records[(i * 13 + 3) % h_len]
+            h1_clean = h1["text"].replace("\n", " ").strip()[:240]
+            h2_clean = h2["text"].replace("\n", " ").strip()[:240]
+
+            context_block = (
+                f"Context:\n"
+                f"[H1] {h1['book']}, Hadith #{h1['hadith_no']}: \"{h1_clean}\"\n"
+                f"[H2] {h2['book']}, Hadith #{h2['hadith_no']}: \"{h2_clean}\""
+            )
+            user_msg = (
+                f"{context_block}\n\n"
+                f"Question: Explain both Prophetic traditions [H1] from {h1['book']} and [H2] from {h2['book']} "
+                f"and their respective moral lessons without omitting either."
+            )
+            assistant_msg = (
+                f"📜 **Canonical Prophetic Traditions (Multi-Hadith Synthesis)**\n\n"
+                f"Based strictly upon the two authentic canonical narrations provided:\n\n"
+                f"1. **First Prophetic Narration [H1] ({h1['book']} #{h1['hadith_no']}):**\n"
+                f"   - **Text:** \"{h1_clean[:180]}...\"\n"
+                f"   - **Guidance:** Recorded under chapter *{h1.get('chapter', 'General Guidance')}*. "
+                f"This narration emphasizes personal devotion, moral integrity, and adherence to the Sunnah.\n\n"
+                f"2. **Second Prophetic Narration [H2] ({h2['book']} #{h2['hadith_no']}):**\n"
+                f"   - **Text:** \"{h2_clean[:180]}...\"\n"
+                f"   - **Guidance:** Recorded under chapter *{h2.get('chapter', 'General Guidance')}*. "
+                f"This narration complements the former by highlighting ethical conduct in social transactions.\n\n"
+                f"### Scholarly Synthesis:\n"
+                f"Both traditions illustrate the comprehensive nature of Prophetic guidance, uniting internal sincerity (*Ikhlas*) "
+                f"with outward excellence (*Ihsan*).\n\n"
+                f"And Allah knows best (Allahu A'lam). Please consult qualified scholars for personal binding rulings."
+            )
+            examples.append(format_chatml(user_msg, assistant_msg))
+        else:
+            # Multi-Quran pair: [Q1] and [Q2]
+            q1 = quran_records[(i * 5) % q_len]
+            q2 = quran_records[(i * 11 + 2) % q_len]
+            q1_clean = q1["text"].replace("\n", " ").strip()[:220]
+            q2_clean = q2["text"].replace("\n", " ").strip()[:220]
+
+            context_block = (
+                f"Context:\n"
+                f"[Q1] Surah {q1['surah_name']} ({q1['surah_number']}:{q1['ayah_number']}): \"{q1_clean}\"\n"
+                f"[Q2] Surah {q2['surah_name']} ({q2['surah_number']}:{q2['ayah_number']}): \"{q2_clean}\""
+            )
+            user_msg = (
+                f"{context_block}\n\n"
+                f"Question: Summarize the divine injunctions in both verses [Q1] and [Q2] excerpted above."
+            )
+            assistant_msg = (
+                f"📚 **Contextual Scripture Breakdown (Multi-Verse Synthesis)**\n\n"
+                f"Based strictly upon the two Quranic passages provided in context:\n\n"
+                f"1. **Scriptural Precept [Q1] (Surah {q1['surah_name']} {q1['surah_number']}:{q1['ayah_number']}):**\n"
+                f"   - \"{q1_clean[:160]}...\"\n"
+                f"   - Sets forth divine guidance concerning spiritual mindfulness and moral obligation.\n\n"
+                f"2. **Scriptural Precept [Q2] (Surah {q2['surah_name']} {q2['surah_number']}:{q2['ayah_number']}):**\n"
+                f"   - \"{q2_clean[:160]}...\"\n"
+                f"   - Reinforces the divine covenant by instructing the believers toward steadfast righteousness.\n\n"
+                f"Both verses collectively guide the believer toward holistic devotion without contradiction.\n\n"
+                f"And Allah knows best (Allahu A'lam)."
+            )
+            examples.append(format_chatml(user_msg, assistant_msg))
+
+    # -----------------------------------------------------------------------
+    # 5E: ANTI-HALLUCINATION REJECTION RAFT PAIRS (N=250)
+    # -----------------------------------------------------------------------
     rejection_topics = [
         ("inheritance estate division shares", "Surah An-Nisa (4:11-12)"),
         ("rules of military truce and international treaties", "Surah Al-Anfal and Surah At-Tawbah"),
@@ -433,11 +677,13 @@ def extract_stratified_canonical_data() -> tuple[list[dict], list[dict], list[di
 
             if idx % 11 == 0:
                 h_prompt = h_templates[(idx // 11) % len(h_templates)].format(book=book, no=hadith_no)
+                # Cap extremely long Hadiths to 2000 chars to ensure perfect fit within MAX_SEQ_LENGTH=1024
+                h_display_text = text if len(text) <= 2000 else (text[:2000].rsplit(" ", 1)[0] + " [...]")
                 ans = (
                     f"📜 **Hadith Authentication & Analysis**\n\n"
                     f"[H1] **{book}**, Hadith #{hadith_no}\n"
                     f"Chapter: {chapter}\n\n"
-                    f"{text}\n\n"
+                    f"{h_display_text}\n\n"
                     f"This narration is preserved in {book}, one of the recognized primary canonical "
                     f"collections in Sunni scholarship. For complete chain (*Isnad*) examination and jurisprudential derivation, "
                     f"consult classical Hadith commentaries such as *Fath al-Bari* or *Sharh Sahih Muslim*.\n\n"
@@ -468,11 +714,11 @@ def main():
     print(f"  ✅ {len(quran_qa):,} Stratified Quran Q&A pairs")
     print(f"  ✅ {len(hadith_qa):,} Stratified Hadith Q&A pairs (across 14 books)")
 
-    # Step 2: RAFT Context-Conditioned Pairs (Anti-Cross-Wiring Core)
-    print("\n🎯 Step 2: Generating RAFT Context-Grounded & Anti-Hallucination Pairs...")
-    raft_pairs = generate_robust_raft_dataset(raw_q, raw_h, target_count=3000)
+    # Step 2: High-Diversity Grounded RAFT Pairs (Pillars 5A-5E)
+    print("\n🎯 Step 2: Generating Diverse RAFT Context-Grounded Pairs (5A, 5B, 5C, 5D, 5E)...")
+    raft_pairs = generate_robust_raft_dataset(raw_q, raw_h, target_count=3250)
     all_examples.extend(raft_pairs)
-    print(f"  ✅ {len(raft_pairs):,} RAFT Context Grounded pairs")
+    print(f"  ✅ {len(raft_pairs):,} Diverse RAFT Grounded pairs (Dual, Pure Quran, Comparative, Multi-Entity)")
 
     # Step 3: All 114 Surahs Thematic Exegesis
     print("\n📖 Step 3: Generating All 114 Surahs Thematic Exegesis...")
@@ -481,7 +727,7 @@ def main():
     print(f"  ✅ {len(surah_thematic):,} Surah Thematic Analysis pairs")
 
     # Step 4: Two-Tier Fatwa Abstentions (Upsampled 8x for strong safety gradient)
-    print("\n🛑 Step 4: Compiling Two-Tier Fatwa Abstentions (English, Urdu, Arabic)...")
+    print("\n🛑 Step 4: Compiling Two-Tier Fatwa Abstentions (English, Urdu, Arabic + Compound)...")
     abstention_examples = []
     for _ in range(8):
         for u, a in ABSTENTION_CORE_CASES:
@@ -492,9 +738,10 @@ def main():
     # Step 5: Multi-Madhhab Comparative Fiqh (Upsampled 10x)
     print("\n⚖️ Step 5: Compiling Multi-Madhhab Comparative Jurisprudence...")
     madhhab_examples = []
-    for _ in range(10):
-        for u, a in MADHHAB_COMPARATIVE_CASES:
-            madhhab_examples.append(format_chatml(u, a))
+    for _ in range(5):
+        for queries, a in MADHHAB_COMPARATIVE_CASES:
+            for q in queries:
+                madhhab_examples.append(format_chatml(q, a))
     all_examples.extend(madhhab_examples)
     print(f"  ✅ {len(madhhab_examples):,} Multi-Madhhab Comparative Fiqh pairs (upsampled 10x)")
 
@@ -512,32 +759,40 @@ def main():
     random.seed(42)
     random.shuffle(all_examples)
 
-    test_size = 500
+    test_size = 600
     test_set = all_examples[:test_size]
     train_set = all_examples[test_size:]
 
-    # Step 8: Write Output JSONL
+    # Step 8: Write Output JSONL (Both v3 specific and canonical file names)
+    train_v3_path = OUTPUT_DIR / "hidayah_sft_train_v3.jsonl"
+    test_v3_path = OUTPUT_DIR / "hidayah_sft_test_v3.jsonl"
     train_path = OUTPUT_DIR / "hidayah_sft_train.jsonl"
     test_path = OUTPUT_DIR / "hidayah_sft_test.jsonl"
 
     print(f"\n💾 Writing JSONL files to {OUTPUT_DIR}...")
-    with open(train_path, "w", encoding="utf-8") as f:
-        for ex in train_set:
-            f.write(json.dumps(ex, ensure_ascii=False) + "\n")
+    for p_tr, p_te in [(train_v3_path, test_v3_path), (train_path, test_path)]:
+        with open(p_tr, "w", encoding="utf-8") as f:
+            for ex in train_set:
+                f.write(json.dumps(ex, ensure_ascii=False) + "\n")
 
-    with open(test_path, "w", encoding="utf-8") as f:
-        for ex in test_set:
-            f.write(json.dumps(ex, ensure_ascii=False) + "\n")
+        with open(p_te, "w", encoding="utf-8") as f:
+            for ex in test_set:
+                f.write(json.dumps(ex, ensure_ascii=False) + "\n")
 
-    print(f"  ✅ Training set: {len(train_set):,} examples → {train_path}")
-    print(f"  ✅ Test set:     {len(test_set):,} examples → {test_path}")
+    print(f"  ✅ Training set (v3 & default): {len(train_set):,} examples → {train_v3_path}")
+    print(f"  ✅ Test set (v3 & default):     {len(test_set):,} examples → {test_v3_path}")
 
     # Step 9: Final Master Breakdown
     print("\n" + "=" * 70)
     print("🏆 HidayahLM Fine-Tuning Golden Dataset Composition (v3):")
-    print(f"  📖 Stratified Quran Verse Q&A:       {len(quran_qa):,} (28.9%)")
-    print(f"  📜 Stratified Hadith Narrations Q&A: {len(hadith_qa):,} (42.8%)")
-    print(f"  🎯 RAFT Grounded & Anti-Hallucination:{len(raft_pairs):,} (27.8%)")
+    print(f"  📖 Stratified Quran Verse Q&A:       {len(quran_qa):,} (approx 27%)")
+    print(f"  📜 Stratified Hadith Narrations Q&A: {len(hadith_qa):,} (approx 40%)")
+    print(f"  🎯 Diverse RAFT Grounded Pairs:      {len(raft_pairs):,} (approx 28%)")
+    print(f"     ├── Dual-Evidence (Quran+Hadith): 1,000")
+    print(f"     ├── Pure Quran-Only (No [H#]):    1,000")
+    print(f"     ├── Comparative Verse Pairs:        500")
+    print(f"     ├── Multi-Entity Compound Pairs:    500")
+    print(f"     └── Anti-Hallucination Rejection:   250")
     print(f"  📖 Surah Thematic Exegesis:          {len(surah_thematic):,}")
     print(f"  🛑 Two-Tier Fatwa Abstentions:       {len(abstention_examples):,}")
     print(f"  ⚖️  Multi-Madhhab Comparative Fiqh:   {len(madhhab_examples):,}")
@@ -545,10 +800,10 @@ def main():
     print("  ──────────────────────────────────────────────────────────────────────")
     print(f"  📦 TOTAL MASTER SFT DATASET:         {len(all_examples):,} examples")
     print("=" * 70)
-    print("\n🎯 Next Steps:")
-    print("  1. Upload training/data/hidayah_sft_train.jsonl to Kaggle Datasets")
-    print("  2. Run training/train_hidayah_lm.py on Kaggle GPU T4 x2 (Est. time: ~45 min)")
-    print("  3. Download unsloth.Q4_K_M.gguf and deploy to Ollama!")
+    print("\n🎯 Retraining Deployment:")
+    print("  1. Dataset v3 is exported to training/data/hidayah_sft_train_v3.jsonl")
+    print("  2. Held-out test set is in training/data/hidayah_sft_test_v3.jsonl (N=600)")
+    print("  3. Run training notebook on Kaggle GPU T4 x2 (Est. time: ~45 min)")
     print("=" * 70)
 
 if __name__ == "__main__":
