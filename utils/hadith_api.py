@@ -23,25 +23,39 @@ HADITH_REF_REGEX = re.compile(
 )
 
 
-def resolve_hadith_reference(query_text: str) -> dict | None:
-    """Inspect a query string for specific Hadith citations (e.g. 'Bukhari 1', 'Abu Dawud 1035').
-    Resolves directly via the Keyless CDN Takhrīj adapter or official Sunnah.com API.
+def resolve_all_hadith_references(query_text: str) -> list[dict]:
+    """Inspect a query string for all specific Hadith citations (e.g. 'Abu Dawud 1035 and Bukhari 1').
+    Resolves each match via the Keyless CDN Takhrīj adapter or official Sunnah.com API.
     """
     if not query_text:
-        return None
-    match = HADITH_REF_REGEX.search(query_text)
-    if not match:
-        return None
+        return []
+    matches = list(HADITH_REF_REGEX.finditer(query_text))
+    if not matches:
+        return []
 
-    collection_raw = match.group(1).strip()
-    hadith_num = match.group(2).strip()
+    results = []
+    seen = set()
+    from utils.sunnah_api import fetch_hadith_by_reference
+    for m in matches:
+        collection_raw = m.group(1).strip()
+        hadith_num = m.group(2).strip()
+        key = (collection_raw.lower(), hadith_num)
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            res = fetch_hadith_by_reference(collection=collection_raw, hadith_number=hadith_num)
+            if res:
+                results.append(res)
+        except Exception as e:
+            log.warning(f"Error resolving hadith reference {collection_raw} #{hadith_num}: {e}")
+    return results
 
-    try:
-        from utils.sunnah_api import fetch_hadith_by_reference
-        return fetch_hadith_by_reference(collection=collection_raw, hadith_number=hadith_num)
-    except Exception as e:
-        log.warning(f"Error resolving hadith reference: {e}")
-        return None
+
+def resolve_hadith_reference(query_text: str) -> dict | None:
+    """Inspect a query string for a single Hadith citation (backward-compatible)."""
+    refs = resolve_all_hadith_references(query_text)
+    return refs[0] if refs else None
 
 
 # -----------------------------------------------------------------------------
@@ -51,7 +65,7 @@ def resolve_hadith_reference(query_text: str) -> dict | None:
 KNOWN_UNAUTHENTIC_HADITHS = [
     {
         "patterns": [
-            r"\b(seek knowledge.*china|even (?:unto|to) china)\b",
+            r"\b(seek(?:ing)?\s+knowledge.*china|china.*knowledge|even (?:unto|to|in) china|hadith.*china)\b",
             r"(اطلبوا العلم ولو بالصين|طلب العلم ولو بالصين)",
         ],
         "statement": "«اطْلُبُوا الْعِلْمَ وَلَوْ بِالصِّينِ» (\"Seek knowledge even if you have to go to China\")",
@@ -71,7 +85,7 @@ KNOWN_UNAUTHENTIC_HADITHS = [
     },
     {
         "patterns": [
-            r"\b(difference(?:s)? of opinion (?:in|among) my ummah is a mercy|ikhtilaf ummati rahmah)\b",
+            r"\b(difference(?:s)? of opinion.*mercy|ikhtilaf ummati rahmah|ikhtilaf.*mercy)\b",
             r"(اختلاف أمتي رحمة|اختلاف أصحابي رحمة)",
         ],
         "statement": "«اخْتِلافُ أُمَّتِي رَحْمَةٌ» (\"Differences of opinion among my Ummah is a mercy\")",

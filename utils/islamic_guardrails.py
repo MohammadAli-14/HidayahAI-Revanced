@@ -73,6 +73,13 @@ SENSITIVE_FATWA_DOMAINS = [
             r"(مذاهب أربعة|اختلاف الفقهاء|رفع اليدين|قنوت الفجر|فقه مقارن)",
         ],
     },
+    {
+        "topic": "Financial Transactions, Usury & Commercial Contracts (Riba / Loans / Banking)",
+        "patterns": [
+            r"\b(riba|usury|interest loan|car loan|vehicle loan|bank loan|mortgage|interest-bearing|is interest permissible|can i take an? interest|buy a (?:car|vehicle|house) on interest)\b",
+            r"(ربا|فائدة بنكية|قرض ربوي|قرض سيارة|رهن عقاري|هل يجوز أخذ قرض)",
+        ],
+    },
 ]
 
 FATWA_GUARD_TEMPLATE = """⚠️ **Scholarly Guidance Notice on {topic}:**
@@ -96,6 +103,7 @@ PERSONAL_CASE_PATTERNS = [
     r"\b(my|our|we|me|i am|i have|my wife|my husband|my father|my mother|my spouse|my son|my daughter|my sister|my brother|my neighbor|my friend|said to me|told me|texted me|kicked me out|cut ties with)\b",
     # Direct personal outcome queries
     r"\b(are we (still|considered) married|did (my|our) marriage end|is (my|our) (divorce|marriage|separation) valid|am i divorced|can i marry|calculate (my|our) share|how much do (i|we|my) get|in (my|this) case)\b",
+    r"\b(is it permissible for me|can i (?:take|borrow|buy)|take an? (?:interest|car|bank|vehicle|mortgage) loan|buy a (?:car|vehicle|house) on interest)\b",
     # Specific amounts and asset allocations
     r"\b(\$\s*\d+|\d+\s*dollars?|\d+\s*usd|\d+\s*rupees?|\d+\s*pkr|\d+\s*pounds?|\d+\s*eur|leaving \d+|left behind \d+)\b",
     # Specific individuals/family splitting
@@ -110,6 +118,48 @@ PERSONAL_CASE_PATTERNS = [
 ]
 
 # Canonical 114 Surahs max Ayah counts for scripture hallucination audit
+
+CANONICAL_114_SURAHS = {
+    1: "Al-Fatihah", 2: "Al-Baqarah", 3: "Ali 'Imran", 4: "An-Nisa", 5: "Al-Ma'idah",
+    6: "Al-An'am", 7: "Al-A'raf", 8: "Al-Anfal", 9: "At-Tawbah", 10: "Yunus",
+    11: "Hud", 12: "Yusuf", 13: "Ar-Ra'd", 14: "Ibrahim", 15: "Al-Hijr",
+    16: "An-Nahl", 17: "Al-Isra", 18: "Al-Kahf", 19: "Maryam", 20: "Ta-Ha",
+    21: "Al-Anbiya", 22: "Al-Hajj", 23: "Al-Mu'minun", 24: "An-Nur", 25: "Al-Furqan",
+    26: "Ash-Shu'ara", 27: "An-Naml", 28: "Al-Qasas", 29: "Al-'Ankabut", 30: "Ar-Rum",
+    31: "Luqman", 32: "As-Sajdah", 33: "Al-Ahzab", 34: "Saba", 35: "Fatir",
+    36: "Ya-Sin", 37: "As-Saffat", 38: "Sad", 39: "Az-Zumar", 40: "Ghafir",
+    41: "Fussilat", 42: "Ash-Shura", 43: "Az-Zukhruf", 44: "Ad-Dukhan", 45: "Al-Jathiyah",
+    46: "Al-Ahqaf", 47: "Muhammad", 48: "Al-Fath", 49: "Al-Hujurat", 50: "Qaf",
+    51: "Adh-Dhariyat", 52: "At-Tur", 53: "An-Najm", 54: "Al-Qamar", 55: "Ar-Rahman",
+    56: "Al-Waqi'ah", 57: "Al-Hadid", 58: "Al-Mujadila", 59: "Al-Hashr", 60: "Al-Mumtahanah",
+    61: "As-Saff", 62: "Al-Jumu'ah", 63: "Al-Munafiqun", 64: "At-Taghabun", 65: "At-Talaq",
+    66: "At-Tahrim", 67: "Al-Mulk", 68: "Al-Qalam", 69: "Al-Haqqah", 70: "Al-Ma'arij",
+    71: "Nuh", 72: "Al-Jinn", 73: "Al-Muzzammil", 74: "Al-Muddaththir", 75: "Al-Qiyamah",
+    76: "Al-Insan", 77: "Al-Mursalat", 78: "An-Naba", 79: "An-Nazi'at", 80: "'Abasa",
+    81: "At-Takwir", 82: "Al-Infitar", 83: "Al-Mutaffifin", 84: "Al-Inshiqaq", 85: "Al-Buruj",
+    86: "At-Tariq", 87: "Al-A'la", 88: "Al-Ghashiyah", 89: "Al-Fajr", 90: "Al-Balad",
+    91: "Ash-Shams", 92: "Al-Layl", 93: "Ad-Duha", 94: "Ash-Sharh", 95: "At-Tin",
+    96: "Al-'Alaq", 97: "Al-Qadr", 98: "Al-Bayyinah", 99: "Az-Zalzalah", 100: "Al-'Adiyat",
+    101: "Al-Qari'ah", 102: "At-Takathur", 103: "Al-'Asr", 104: "Al-Humazah", 105: "Al-Fil",
+    106: "Quraysh", 107: "Al-Ma'un", 108: "Al-Kawthar", 109: "Al-Kafirun", 110: "An-Nasr",
+    111: "Al-Masad", 112: "Al-Ikhlas", 113: "Al-Falaq", 114: "An-Nas"
+}
+
+def normalize_surah_name(name: str) -> str:
+    """Normalize a surah name by stripping prefix 'al-', 'at-', apostrophes, hyphens, and whitespace."""
+    s = name.lower().strip()
+    s = re.sub(r"^(?:al|at|an|ar|as|ash|az|ad|adh)[\s'-]+", "", s)
+    s = re.sub(r"[\s'-]+", "", s)
+    return s
+
+CANONICAL_SURAH_NAME_SET = {
+    normalize_surah_name(name) for name in CANONICAL_114_SURAHS.values()
+}
+CANONICAL_SURAH_NAME_SET.update({
+    "fatiha", "fateha", "baqara", "baqarah", "imran", "aleimran", "aliimran",
+    "isra", "israa", "kahf", "qamar", "qiamah", "qiyamah", "takwir", "inshiqaq"
+})
+
 QURAN_SURAH_MAX_AYAHS = {
     1: 7, 2: 286, 3: 200, 4: 176, 5: 120, 6: 165, 7: 206, 8: 75, 9: 129, 10: 109,
     11: 123, 12: 111, 13: 43, 14: 52, 15: 99, 16: 128, 17: 111, 18: 110, 19: 98, 20: 135,
@@ -153,18 +203,19 @@ def classify_fatwa_sensitivity(query: str, in_pdf_context: bool = False) -> dict
 
     query_lower = query.strip().lower()
 
-    # Step 1: Detect matching sensitive domain
-    matched_topic = None
+    # Step 1: Detect matching sensitive domains (supporting compound/multi-topic inquiries)
+    matched_topics = []
     for domain in SENSITIVE_FATWA_DOMAINS:
         for pattern in domain["patterns"]:
             if re.search(pattern, query_lower, re.IGNORECASE):
-                matched_topic = domain["topic"]
+                if domain["topic"] not in matched_topics:
+                    matched_topics.append(domain["topic"])
                 break
-        if matched_topic:
-            break
 
-    if not matched_topic:
+    if not matched_topics:
         return default_res
+
+    matched_topic = matched_topics[0]
 
     # Step 2: In PDF Analysis context, questions querying the document are academic
     if in_pdf_context and any(kw in query_lower for kw in ["pdf", "document", "author", "paper", "book", "chapter"]):
@@ -195,11 +246,14 @@ def classify_fatwa_sensitivity(query: str, in_pdf_context: bool = False) -> dict
 
     # If asking case-specific division or divorce status without academic markers
     if is_personal:
+        notices = [FATWA_GUARD_TEMPLATE.format(topic=t) for t in matched_topics]
+        advisory_notice = "\n\n---\n\n".join(notices)
         return {
             "is_sensitive": True,
             "is_personal_verdict": True,
-            "topic": matched_topic,
-            "advisory_notice": FATWA_GUARD_TEMPLATE.format(topic=matched_topic),
+            "topic": " & ".join(matched_topics),
+            "topics": matched_topics,
+            "advisory_notice": advisory_notice,
             "requires_madhhab_synthesis": False,
         }
 
@@ -241,6 +295,19 @@ def verify_grounded_citations(llm_response: str, context_text: str) -> str:
     """
     if not llm_response:
         return llm_response
+
+    # Pre-Sanitization 1: Cross-Wired Tag Stripper (e.g. [H#] tagged to a Surah/Ayah)
+    llm_response = re.sub(r"(?m)^\s*\[H\d+\]\s*(?:Surah|Ayah|Verse)[^\r\n]*\r?\n?", "", llm_response)
+
+    # Pre-Sanitization 2: Canonical 114 Surah Whitelist Audit (rejection of fabricated names like 'Surah Al-Qiyaq')
+    surah_mentions = list(re.finditer(r"\bSurah\s+([A-Za-z'-]+)", llm_response, re.IGNORECASE))
+    for sm in surah_mentions:
+        raw_name = sm.group(1).strip()
+        norm_name = normalize_surah_name(raw_name)
+        if norm_name not in CANONICAL_SURAH_NAME_SET and len(norm_name) >= 3:
+            log.warning(f"Sanitizing non-canonical Surah name: '{raw_name}'")
+            pattern = rf"(?:\[[A-Za-z0-9]+\]\s*)?Surah\s+{re.escape(raw_name)}[^\n\.]*[\n\.]?"
+            llm_response = re.sub(pattern, "", llm_response)
 
     audit_notes = []
 
@@ -304,6 +371,28 @@ def verify_grounded_citations(llm_response: str, context_text: str) -> str:
         )
         if inv_note not in audit_notes:
             audit_notes.append(inv_note)
+
+    # 3. Detect and sanitize ungrounded verse citations (citations introduced by LLM not in retrieved context)
+    if context_text and verse_refs:
+        ungrounded = []
+        for surah_str, ayah_str in verse_refs:
+            ref_str = f"{surah_str}:{ayah_str}"
+            if ref_str not in context_text and int(surah_str) <= 114:
+                ungrounded.append(ref_str)
+        if ungrounded:
+            log.warning(f"Detected ungrounded verse citations not present in context: {ungrounded}")
+            # Sanitize hallucinated parentheticals (e.g. '(Surah Al-Baqara 2:35)') from output
+            for u_ref in ungrounded:
+                u_s, u_a = u_ref.split(":")
+                llm_response = re.sub(rf"\s*\([A-Za-z\s'-]*{u_s}:{u_a}\)", "", llm_response)
+            clean_ungrounded = [u for u in ungrounded if u in llm_response]
+            if clean_ungrounded:
+                audit_notes.append(
+                    f"Verses ({', '.join(clean_ungrounded)}) were cited without primary retrieved context. "
+                    "Cross-verification with classical sources is recommended."
+                )
+
+
 
     if audit_notes:
         unique_notes = list(dict.fromkeys(audit_notes))

@@ -207,7 +207,7 @@ def _fetch_single_cdn_json(edition: str, hadith_number: str) -> tuple[str, list[
     ]
     for url in urls:
         try:
-            resp = requests.get(url, timeout=2.0, headers={"User-Agent": "HidayahAI/1.0"})
+            resp = requests.get(url, timeout=6.0, headers={"User-Agent": "HidayahAI/1.0"})
             if resp.status_code == 200:
                 data = resp.json()
                 hadiths = data.get("hadiths", [])
@@ -247,14 +247,14 @@ def fetch_hadith_from_cdn(
         future_ar = executor.submit(_fetch_single_cdn_json, edition_ar, clean_num)
 
         try:
-            text_en, grades_en, ref_en = future_en.result(timeout=5.0)
+            text_en, grades_en, ref_en = future_en.result(timeout=10.0)
             grades = grades_en
             ref = ref_en
         except Exception as e:
             log.warning(f"CDN English fetch timeout/error: {e}")
 
         try:
-            text_ar, _, _ = future_ar.result(timeout=5.0)
+            text_ar, _, _ = future_ar.result(timeout=10.0)
         except Exception as e:
             log.warning(f"CDN Arabic fetch timeout/error: {e}")
 

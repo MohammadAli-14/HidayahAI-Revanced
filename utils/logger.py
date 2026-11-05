@@ -6,6 +6,13 @@ Provides a consistent logger for all modules, replacing raw print() calls.
 import logging
 import sys
 
+# Ensure UTF-8 console output on Windows to avoid UnicodeEncodeError with Arabic text
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 _LOG_FORMAT = "%(asctime)s [%(name)s] %(levelname)s — %(message)s"
 _DATE_FORMAT = "%H:%M:%S"
 
