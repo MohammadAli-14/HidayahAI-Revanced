@@ -86,7 +86,7 @@ def fetch_tafsir_for_ayah(
 
     try:
         log.info(f"Fetching Quran.com tafsir {tafsir_id} for {ayah_key}")
-        resp = get_with_retry(url, timeout=15, label=f"qurancom:tafsir:{tafsir_id}")
+        resp = get_with_retry(url, timeout=4, label=f"qurancom:tafsir:{tafsir_id}")
         resp.raise_for_status()
         data = resp.json()
 

@@ -26,7 +26,7 @@ def search_web(query: str, max_results: int = 5) -> list[dict]:
         log.info(f"Searching web for: '{query[:80]}'")
         response = client.search(
             query=query,
-            search_depth="advanced",
+            search_depth="basic",
             max_results=max_results,
             include_answer=True,
         )

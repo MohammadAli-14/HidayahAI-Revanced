@@ -40,6 +40,7 @@ def get_context_bundle_for_window(
     ayah_window: list[dict],
     tafseer_language: str = "en",
     max_tafseer_sources: int = TAFSEER_SOURCE_TARGET_COUNT,
+    include_hadith: bool = True,
 ) -> dict:
     """Retrieve tafseer + hadith evidence for each ayah in a visible window."""
     if not ayah_window:
@@ -65,10 +66,14 @@ def get_context_bundle_for_window(
             language=tafseer_language,
             max_sources=max_tafseer_sources,
         )
-        hadith_sources = fetch_related_hadith(
-            ayah_text_english=ayah.get("english", ""),
-            surah_name=ayah.get("surah_name", ""),
-            ayah_number=ayah_number,
+        hadith_sources = (
+            fetch_related_hadith(
+                ayah_text_english=ayah.get("english", ""),
+                surah_name=ayah.get("surah_name", ""),
+                ayah_number=ayah_number,
+            )
+            if include_hadith
+            else []
         )
 
         tafsir_by_ayah[ayah_ref] = tafsir_sources
