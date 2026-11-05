@@ -40,6 +40,8 @@ uploaded_pdfs/
 frontend/node_modules/
 frontend/.next/
 frontend/tsconfig.tsbuildinfo
+frontend/next-env.d.ts
+next-env.d.ts
 node_modules/
 .next/
 dist/
