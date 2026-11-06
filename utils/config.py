@@ -63,31 +63,9 @@ EMERALD_LIGHT = "#10B981"
 BG_LIGHT = "#F8FAFC"
 
 # ── Logo Configuration ──
-# Elite vector emblem synced to BG_DARK (#0F172A), GOLD (#D4AF37), and BG_LIGHT (#F8FAFC)
-_DEFAULT_LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="hidayahGold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#F3DF99" />
-      <stop offset="35%" stop-color="#D4AF37" />
-      <stop offset="70%" stop-color="#AA8220" />
-      <stop offset="100%" stop-color="#E6C665" />
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="96" fill="#0F172A" />
-  <g transform="translate(256, 256) scale(1.15)" fill="none" stroke-miterlimit="10">
-    <polygon points="0,-172 50.4,-121.6 121.6,-121.6 121.6,-50.4 172,0 121.6,50.4 121.6,121.6 50.4,121.6 0,172 -50.4,121.6 -121.6,121.6 -121.6,50.4 -172,0 -121.6,-50.4 -121.6,-121.6 -50.4,-121.6" stroke="url(#hidayahGold)" stroke-width="12" />
-    <polyline points="-98,42 -140,0 -98,-42 -98,-98 -42,-98 0,-140 42,-98 98,-98 98,-42 140,0 98,42" stroke="#F8FAFC" stroke-width="10" stroke-linecap="square" />
-    <polyline points="-82,36 0,88 82,36" stroke="#F8FAFC" stroke-width="10" stroke-linecap="square" />
-    <polyline points="-98,58 0,118 98,58" stroke="url(#hidayahGold)" stroke-width="11" stroke-linecap="square" />
-    <polyline points="-98,78 -98,98 -42,98 0,142 42,98 98,98 98,78" stroke="url(#hidayahGold)" stroke-width="10" stroke-linecap="square" />
-    <line x1="-44" y1="-64" x2="-44" y2="30" stroke="url(#hidayahGold)" stroke-width="12" stroke-linecap="square" />
-    <line x1="44" y1="8" x2="44" y2="30" stroke="url(#hidayahGold)" stroke-width="12" stroke-linecap="square" />
-    <line x1="22" y1="8" x2="22" y2="38" stroke="url(#hidayahGold)" stroke-width="10" stroke-linecap="square" />
-    <line x1="-22" y1="6" x2="-22" y2="38" stroke="url(#hidayahGold)" stroke-width="10" stroke-linecap="square" />
-    <path d="M -22,-34 Q -12,-66 0,-80 Q 22,-54 22,-16 C 22,8 -18,12 -18,-14 C -18,-34 6,-34 6,-16 C 6,0 -26,8 -44,24" stroke="url(#hidayahGold)" stroke-width="12" stroke-linejoin="round" />
-    <path d="M -14,-6 C 8,12 44,4 44,-24 L 44,-64" stroke="url(#hidayahGold)" stroke-width="12" stroke-linecap="square" />
-  </g>
-</svg>"""
+# Sacred Euclidean Rub el Hizb + Calligraphic 'Haa' (هـ) + Open Mushaf vector emblem
+_DEFAULT_LOGO_PATH = _APP_DIR / "hidayah_logo.svg"
+_DEFAULT_LOGO_SVG = _DEFAULT_LOGO_PATH.read_text(encoding="utf-8") if _DEFAULT_LOGO_PATH.exists() else ""
 
 
 def _resolve_logo_path() -> Path:
