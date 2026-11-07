@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React from "react";
 import { Play, Pause, Volume2, Sparkles, BookOpen } from "lucide-react";
 import { NameOfAllah } from "@/lib/api";
 
 interface NameCardProps {
   name: NameOfAllah;
   onSelect: (name: NameOfAllah) => void;
+  onOpenDetail?: (name: NameOfAllah) => void;
   onShowToast?: (msg: string) => void;
   isActivelyPlayingContinuous?: boolean;
 }
@@ -14,49 +15,21 @@ interface NameCardProps {
 export function NameCard({
   name,
   onSelect,
+  onOpenDetail,
   onShowToast,
   isActivelyPlayingContinuous = false,
 }: NameCardProps) {
-  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
   const handlePlayAudio = (e: React.MouseEvent) => {
     e.stopPropagation();
+    onSelect(name);
+  };
 
-    if (isPlayingAudio && audioRef.current) {
-      audioRef.current.pause();
-      setIsPlayingAudio(false);
-      return;
-    }
-
-    if (!audioRef.current) {
-      const audio = new Audio(name.audio_url);
-      audio.onended = () => setIsPlayingAudio(false);
-      
-      // Fallback mirror if primary CDN fails
-      audio.onerror = () => {
-        if (name.audio_fallback_url && audio.src !== name.audio_fallback_url) {
-          audio.src = name.audio_fallback_url;
-          audio.play().catch(() => {
-            setIsPlayingAudio(false);
-            onShowToast?.(`Audio unavailable for ${name.transliteration}`);
-          });
-        } else {
-          setIsPlayingAudio(false);
-          onShowToast?.(`Audio unavailable for ${name.transliteration}`);
-        }
-      };
-      audioRef.current = audio;
-    }
-
-    setIsPlayingAudio(true);
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch((err) => {
-        console.warn("Audio play prevented:", err);
-        setIsPlayingAudio(false);
-        onShowToast?.("Audio playback failed. Please check network connection.");
-      });
+  const handleOpenDetail = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onOpenDetail) {
+      onOpenDetail(name);
+    } else {
+      onSelect(name);
     }
   };
 
@@ -71,17 +44,21 @@ export function NameCard({
       }`}
     >
       {/* Decorative Golden Top Shimmer */}
-      <div className={`absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent transition-opacity duration-300 ${
-        isActivelyPlayingContinuous ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-      }`} />
+      <div
+        className={`absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent transition-opacity duration-300 ${
+          isActivelyPlayingContinuous ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        }`}
+      />
 
       {/* Header: Number Badge & Category Pill */}
       <div className="flex items-center justify-between mb-3">
-        <div className={`w-7 h-7 rounded-lg border flex items-center justify-center font-mono text-xs font-bold transition-colors ${
-          isActivelyPlayingContinuous
-            ? "bg-[#D4AF37] text-black border-[#D4AF37]"
-            : "bg-black/60 border-[#D4AF37]/40 text-[#D4AF37] shadow-inner"
-        }`}>
+        <div
+          className={`w-7 h-7 rounded-lg border flex items-center justify-center font-mono text-xs font-bold transition-colors ${
+            isActivelyPlayingContinuous
+              ? "bg-[#D4AF37] text-black border-[#D4AF37]"
+              : "bg-black/60 border-[#D4AF37]/40 text-[#D4AF37] shadow-inner"
+          }`}
+        >
           {name.number}
         </div>
 
@@ -126,30 +103,34 @@ export function NameCard({
         <button
           onClick={handlePlayAudio}
           className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center space-x-1.5 text-xs ${
-            isPlayingAudio
-              ? "bg-[#D4AF37] border-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20"
+            isActivelyPlayingContinuous
+              ? "bg-[#D4AF37] border-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20 font-bold"
               : "bg-black/40 border-white/10 hover:border-[#D4AF37]/50 text-slate-300 hover:text-[#D4AF37]"
           }`}
-          title={`Listen to pronunciation of ${name.transliteration}`}
+          title={`Listen to ${name.transliteration}`}
           aria-label={`Listen to ${name.transliteration}`}
         >
-          {isPlayingAudio ? (
+          {isActivelyPlayingContinuous ? (
             <>
               <Pause className="w-3.5 h-3.5 fill-current" />
-              <span className="text-[10px] font-bold">Playing</span>
+              <span className="text-[10px]">Playing</span>
             </>
           ) : (
             <>
               <Volume2 className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span className="text-[10px] font-medium hidden sm:inline">Audio</span>
+              <span className="text-[10px] font-medium hidden sm:inline">Recite</span>
             </>
           )}
         </button>
 
-        <span className="text-[11px] text-slate-400 group-hover:text-slate-200 flex items-center space-x-1 transition-colors">
+        <button
+          onClick={handleOpenDetail}
+          className="text-[11px] text-slate-400 hover:text-[#D4AF37] flex items-center space-x-1 transition-colors cursor-pointer bg-white/[0.04] hover:bg-white/[0.08] px-2.5 py-1.5 rounded-lg border border-white/5 hover:border-[#D4AF37]/30"
+          title="Open Tafseer, Hadith & Tasbih"
+        >
           <span>Explore</span>
           <BookOpen className="w-3 h-3 text-[#D4AF37]" />
-        </span>
+        </button>
       </div>
     </div>
   );

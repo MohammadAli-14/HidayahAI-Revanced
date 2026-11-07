@@ -353,8 +353,9 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
                 // If user clicks a card, seek Mishary recitation directly to this Name
                 handleStartContinuousPlay(idx);
               }}
+              onOpenDetail={(n) => setSelectedName(n)}
               onShowToast={showToast}
-              isActivelyPlayingContinuous={activeContinuousId === name.id}
+              isActivelyPlayingContinuous={activeContinuousId === name.id && isContinuousPlaying}
             />
           ))}
         </div>
