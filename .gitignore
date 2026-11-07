@@ -58,3 +58,5 @@ skills-lock.json
 # 7. Legacy / Nested workspaces
 Hidayah AI - Copy/
 .temp_ag_kit/
+
+.ag-kit-backups/

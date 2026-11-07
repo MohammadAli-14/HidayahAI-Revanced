@@ -1,6 +1,6 @@
 # UI Implementation Rules
 - Primary Framework: Streamlit.
-- Branding: Use 'Hadayah AI.jpg' in the sidebar.
+- Branding: Use 'hidayah_logo.svg' (Rub el Hizb 8-pointed star + Calligraphic 'Haa' (هـ) + Open Mushaf) in the sidebar.
 - Color Palette: Midnight Blue (#1a2a40), Emerald Green, Metallic Gold (#d4af37).
 - Layout: Use a sidebar for Juz navigation and a main area with dual-pane text display (Arabic vs. Translation).
 - Instruction: Inject the Tailwind-styled HTML from 'code.html' into the Streamlit app using st.markdown(unsafe_allow_html=True).
