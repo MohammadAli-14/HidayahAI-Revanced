@@ -1,11 +1,17 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Search, Sparkles, Play, Pause, X, RotateCcw, Volume2 } from "lucide-react";
+import { Search, Sparkles, Play, Pause, X, RotateCcw, Volume2, Headphones } from "lucide-react";
 import { NameOfAllah, NameCategory } from "@/lib/api";
 import { NameCard } from "./NameCard";
 import { NameDetailModal } from "./NameDetailModal";
 import { NamesContinuousPlayerBar } from "./NamesContinuousPlayerBar";
+import {
+  MISHARY_AUDIO_PATH,
+  MISHARY_AUDIO_DURATION,
+  getNameIdForTime,
+  getTimeForNameId,
+} from "@/lib/mishary_timestamps";
 
 interface NamesGridProps {
   initialNames: NameOfAllah[];
@@ -18,15 +24,16 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
   const [selectedName, setSelectedName] = useState<NameOfAllah | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Central Continuous Audio State
+  // Central Recitation Audio State
   const [isContinuousActive, setIsContinuousActive] = useState<boolean>(false);
   const [continuousIndex, setContinuousIndex] = useState<number>(0);
   const [isContinuousPlaying, setIsContinuousPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [isLoopingAll, setIsLoopingAll] = useState<boolean>(true);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(MISHARY_AUDIO_DURATION);
 
-  const continuousAudioRef = useRef<HTMLAudioElement | null>(null);
-  const lookaheadAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -64,101 +71,53 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
     return list;
   }, [initialNames, selectedCategory, searchTerm]);
 
-  // Audio Playback lifecycle for Central Player
-  const isTransitioningRef = useRef<boolean>(false);
+  // Initialize and bind Mishary Master Audio instance
+  useEffect(() => {
+    const audio = new Audio(MISHARY_AUDIO_PATH);
+    audio.preload = "auto";
+    audioRef.current = audio;
 
-  // Play a specific track index in continuous mode
-  const playTrack = useCallback((index: number) => {
-    if (filteredNames.length === 0) return;
-    const targetIndex = Math.max(0, Math.min(index, filteredNames.length - 1));
-    const targetItem = filteredNames[targetIndex];
-    if (!targetItem) return;
+    audio.onloadedmetadata = () => {
+      if (audio.duration && !isNaN(audio.duration)) {
+        setDuration(audio.duration);
+      }
+    };
 
-    if (!continuousAudioRef.current) {
-      continuousAudioRef.current = new Audio();
-    }
-
-    const audio = continuousAudioRef.current;
-    audio.playbackRate = playbackSpeed;
-
-    // Attach sync event listeners to keep UI 100% aligned with actual audio state
     audio.onplay = () => setIsContinuousPlaying(true);
     audio.onpause = () => setIsContinuousPlaying(false);
 
-    audio.onended = () => {
-      if (isTransitioningRef.current) return;
-      isTransitioningRef.current = true;
+    // Continuous timeupdate handler for precision synchronized card illumination
+    audio.ontimeupdate = () => {
+      const cur = audio.currentTime;
+      setCurrentTime(cur);
 
-      setTimeout(() => {
-        setContinuousIndex((prev) => {
-          if (prev < filteredNames.length - 1) {
-            return prev + 1;
-          } else if (isLoopingAll) {
-            return 0;
-          } else {
-            setIsContinuousPlaying(false);
-            return prev;
-          }
-        });
-        isTransitioningRef.current = false;
-      }, 300);
+      // Determine active Name ID from timestamp
+      const activeNameId = getNameIdForTime(cur);
+      const matchIdx = filteredNames.findIndex((n) => n.id === activeNameId);
+      if (matchIdx !== -1) {
+        setContinuousIndex(matchIdx);
+      }
     };
 
-    audio.onerror = () => {
-      console.warn(`Primary audio failed for ${targetItem.transliteration}, trying fallback.`);
-      if (targetItem.audio_fallback_url && audio.src !== targetItem.audio_fallback_url) {
-        audio.src = targetItem.audio_fallback_url;
-        audio.play().catch((err) => {
-          console.warn("Fallback audio play failed:", err);
-          setIsContinuousPlaying(false);
-        });
+    audio.onended = () => {
+      if (isLoopingAll) {
+        audio.currentTime = getTimeForNameId(1);
+        audio.play().catch(console.warn);
       } else {
         setIsContinuousPlaying(false);
       }
     };
 
-    // Load and play new track
-    if (audio.src !== targetItem.audio_url) {
-      audio.src = targetItem.audio_url;
-    }
-    audio.currentTime = 0;
-    audio.play().then(() => {
-      setIsContinuousPlaying(true);
-    }).catch((err) => {
-      console.warn("Audio play prevented or interrupted:", err);
-    });
+    audio.onerror = () => {
+      console.warn("Local audio stream error, checking fallback mirror");
+      showToast("Primary audio mirror buffering, retrying...");
+    };
 
-    setContinuousIndex(targetIndex);
-    setIsContinuousActive(true);
-  }, [filteredNames, playbackSpeed, isLoopingAll]);
-
-  // When continuousIndex changes while active, ensure correct track is playing
-  useEffect(() => {
-    if (!isContinuousActive || filteredNames.length === 0) return;
-    const currentItem = filteredNames[continuousIndex];
-    if (!currentItem || !continuousAudioRef.current) return;
-
-    const audio = continuousAudioRef.current;
-    if (audio.src !== currentItem.audio_url && audio.src !== currentItem.audio_fallback_url) {
-      audio.src = currentItem.audio_url;
-      audio.playbackRate = playbackSpeed;
-      if (isContinuousPlaying) {
-        audio.play().catch(console.warn);
-      }
-    }
-  }, [continuousIndex, isContinuousActive, filteredNames, playbackSpeed, isContinuousPlaying]);
-
-  // Lookahead prefetching next audio file
-  useEffect(() => {
-    const nextItem = filteredNames[continuousIndex + 1];
-    if (isContinuousActive && nextItem) {
-      if (!lookaheadAudioRef.current) {
-        lookaheadAudioRef.current = new Audio();
-      }
-      lookaheadAudioRef.current.src = nextItem.audio_url;
-      lookaheadAudioRef.current.preload = "auto";
-    }
-  }, [continuousIndex, isContinuousActive, filteredNames]);
+    return () => {
+      audio.pause();
+      audio.src = "";
+    };
+  }, [filteredNames, isLoopingAll, showToast]);
 
   // Synchronized Auto-Scroll into view when continuous name advances
   useEffect(() => {
@@ -171,43 +130,75 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
     }
   }, [continuousIndex, isContinuousActive, filteredNames]);
 
-  // Central Recitation Handlers
+  // Start continuous recitation from a specific Name
   const handleStartContinuousPlay = (startIndex: number = 0) => {
-    playTrack(startIndex);
+    if (!audioRef.current) return;
+    const targetItem = filteredNames[startIndex] || filteredNames[0];
+    const targetTime = targetItem ? getTimeForNameId(targetItem.id) : 0;
+
+    audioRef.current.currentTime = targetTime;
+    audioRef.current.playbackRate = playbackSpeed;
+    audioRef.current.play().then(() => {
+      setIsContinuousPlaying(true);
+      setIsContinuousActive(true);
+      setContinuousIndex(startIndex);
+    }).catch((err) => {
+      console.warn("Audio play prevented:", err);
+      showToast("Tap again to allow audio playback.");
+    });
   };
 
   const handleTogglePlayPause = () => {
-    if (!continuousAudioRef.current) {
-      playTrack(continuousIndex);
-      return;
-    }
-    const audio = continuousAudioRef.current;
-    if (audio.paused) {
-      audio.play().then(() => {
+    if (!audioRef.current) return;
+    if (audioRef.current.paused) {
+      audioRef.current.play().then(() => {
         setIsContinuousPlaying(true);
       }).catch(console.warn);
     } else {
-      audio.pause();
+      audioRef.current.pause();
       setIsContinuousPlaying(false);
     }
   };
 
   const handleNextContinuous = () => {
+    if (!audioRef.current) return;
     const nextIdx = continuousIndex < filteredNames.length - 1
       ? continuousIndex + 1
       : isLoopingAll
       ? 0
       : continuousIndex;
-    playTrack(nextIdx);
+    const nextItem = filteredNames[nextIdx];
+    if (nextItem) {
+      audioRef.current.currentTime = getTimeForNameId(nextItem.id);
+      if (audioRef.current.paused) audioRef.current.play().catch(console.warn);
+      setContinuousIndex(nextIdx);
+    }
   };
 
   const handlePrevContinuous = () => {
+    if (!audioRef.current) return;
     const prevIdx = continuousIndex > 0
       ? continuousIndex - 1
       : isLoopingAll
       ? filteredNames.length - 1
       : 0;
-    playTrack(prevIdx);
+    const prevItem = filteredNames[prevIdx];
+    if (prevItem) {
+      audioRef.current.currentTime = getTimeForNameId(prevItem.id);
+      if (audioRef.current.paused) audioRef.current.play().catch(console.warn);
+      setContinuousIndex(prevIdx);
+    }
+  };
+
+  const handleSeek = (targetSeconds: number) => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = targetSeconds;
+    setCurrentTime(targetSeconds);
+    const activeNameId = getNameIdForTime(targetSeconds);
+    const matchIdx = filteredNames.findIndex((n) => n.id === activeNameId);
+    if (matchIdx !== -1) {
+      setContinuousIndex(matchIdx);
+    }
   };
 
   const handleToggleSpeed = () => {
@@ -215,8 +206,8 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
     const nextIdx = (speeds.indexOf(playbackSpeed) + 1) % speeds.length;
     const newSpeed = speeds[nextIdx];
     setPlaybackSpeed(newSpeed);
-    if (continuousAudioRef.current) {
-      continuousAudioRef.current.playbackRate = newSpeed;
+    if (audioRef.current) {
+      audioRef.current.playbackRate = newSpeed;
     }
   };
 
@@ -225,9 +216,8 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
   };
 
   const handleCloseContinuous = () => {
-    if (continuousAudioRef.current) {
-      continuousAudioRef.current.pause();
-      continuousAudioRef.current.src = "";
+    if (audioRef.current) {
+      audioRef.current.pause();
     }
     setIsContinuousPlaying(false);
     setIsContinuousActive(false);
@@ -242,6 +232,14 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-32">
       {/* Search & Central Action Toolbar */}
       <div className="space-y-4">
+        {/* Reciter Badge Header */}
+        <div className="flex items-center justify-center space-x-2 text-xs text-[#D4AF37] font-medium">
+          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 shadow-sm">
+            <Headphones className="w-3.5 h-3.5" />
+            <span>Master Talawat: <strong>Sheikh Mishary Rashid Alafasy</strong> (الشيخ مشاري راشد العفاسي)</span>
+          </span>
+        </div>
+
         {/* Search Input Bar & Central Play All Action */}
         <div className="flex flex-col sm:flex-row items-center gap-3 max-w-3xl mx-auto">
           <div className="relative flex-1 w-full">
@@ -274,7 +272,7 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
               }
             }}
             className="w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#F3E5AB] hover:from-[#E5C158] hover:to-[#FFF0B8] text-black font-semibold text-xs shadow-xl shadow-[#D4AF37]/25 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer flex-shrink-0"
-            title="Start continuous sequential recitation of all Divine Names"
+            title="Start continuous master recitation of all Divine Names"
           >
             {isContinuousActive && isContinuousPlaying ? (
               <>
@@ -328,7 +326,7 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
           </span>
           {isContinuousActive && (
             <span className="inline-flex items-center space-x-1 text-[#D4AF37] font-semibold text-[11px] animate-pulse">
-              <span>• Continuous Recitation Active</span>
+              <span>• Sheikh Mishary Alafasy Tilawat Active</span>
             </span>
           )}
         </span>
@@ -351,7 +349,10 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
             <NameCard
               key={name.id}
               name={name}
-              onSelect={(n) => setSelectedName(n)}
+              onSelect={(n) => {
+                // If user clicks a card, seek Mishary recitation directly to this Name
+                handleStartContinuousPlay(idx);
+              }}
               onShowToast={showToast}
               isActivelyPlayingContinuous={activeContinuousId === name.id}
             />
@@ -394,9 +395,13 @@ export function NamesGrid({ initialNames, categories }: NamesGridProps) {
           isPlaying={isContinuousPlaying}
           playbackSpeed={playbackSpeed}
           isLooping={isLoopingAll}
+          currentTime={currentTime}
+          duration={duration}
+          reciterTitle="Sheikh Mishary Rashid Alafasy"
           onPlayPause={handleTogglePlayPause}
           onNext={handleNextContinuous}
           onPrev={handlePrevContinuous}
+          onSeek={handleSeek}
           onToggleSpeed={handleToggleSpeed}
           onToggleLoop={handleToggleLoop}
           onClose={handleCloseContinuous}
