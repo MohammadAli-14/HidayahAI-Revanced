@@ -14,6 +14,12 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
+# Enforce UTF-8 on Windows terminal streams to avoid UnicodeEncodeError
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = ROOT_DIR / "frontend"
 VENV_PYTHON = ROOT_DIR / ".venv" / "Scripts" / "python.exe"
@@ -25,7 +31,7 @@ BACKEND_PORT = "8001"
 FRONTEND_PORT = "3000"
 
 print("=" * 65)
-print("🕌 HIDAYAH AI — THEOLOGICAL RESEARCH PLATFORM")
+print("[HIDAYAH AI] THEOLOGICAL RESEARCH PLATFORM")
 print("=" * 65)
 print(f"1. Launching FastAPI Theological Gateway (Port {BACKEND_PORT})...")
 
@@ -73,9 +79,9 @@ for _ in range(30):
         pass
 
 if backend_ready:
-    print(f"✓ FastAPI Gateway is ready and active on http://127.0.0.1:{BACKEND_PORT}")
+    print(f"[OK] FastAPI Gateway is ready and active on http://127.0.0.1:{BACKEND_PORT}")
 else:
-    print(f"✓ FastAPI Gateway active on http://127.0.0.1:{BACKEND_PORT} (startup continuing...)")
+    print(f"[OK] FastAPI Gateway active on http://127.0.0.1:{BACKEND_PORT} (startup continuing...)")
 
 # 2. Start Next.js Frontend
 print(f"2. Launching Next.js Research Dashboard (Port {FRONTEND_PORT})...")
@@ -101,7 +107,7 @@ for _ in range(30):
     except Exception:
         pass
 
-print(f"✓ Next.js Frontend available at {dashboard_url}")
+print(f"[OK] Next.js Frontend available at {dashboard_url}")
 print("Opening browser...")
 
 try:
